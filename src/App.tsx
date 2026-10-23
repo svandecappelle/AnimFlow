@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   clipboardPayload,
   deleteSelected,
@@ -19,6 +19,9 @@ import { Timeline } from './components/Timeline';
 import { TOOL_KEYS, Toolbar } from './components/Toolbar';
 import { TopBar } from './components/TopBar';
 import { useStore } from './store';
+
+// Chargé à la demande : l'encodeur vidéo est volumineux
+const VideoDialog = lazy(() => import('./components/VideoDialog').then((m) => ({ default: m.VideoDialog })));
 
 const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || /INPUT|TEXTAREA|SELECT/.test(t.tagName));
@@ -41,11 +44,13 @@ const SHORTCUTS: [string, string][] = [
   ['P', 'Lecture / pause des animations'],
   ['C', 'Caméra qui suit l’animation (mode séquence)'],
   ['Ctrl+S / Ctrl+O / Ctrl+E', 'Enregistrer / ouvrir / exporter SVG animé'],
+  ['Ctrl+Maj+E', 'Exporter en vidéo (MP4, WebM, GIF)'],
 ];
 
 export default function App() {
   const [mermaid, setMermaid] = useState<'import' | 'export' | null>(null);
   const [help, setHelp] = useState(false);
+  const [video, setVideo] = useState(false);
   const [dropping, setDropping] = useState(false);
   const sequence = useStore((s) => s.diagram.settings.sequence);
 
@@ -67,6 +72,7 @@ export default function App() {
         else if (k === 'a') selectAll();
         else if (k === 's') saveJson();
         else if (k === 'o') void openFile();
+        else if (k === 'e' && e.shiftKey) setVideo(true);
         else if (k === 'e') exportSvg();
         else return;
         e.preventDefault();
@@ -155,7 +161,7 @@ export default function App() {
         if (file) void importFile(file, e.shiftKey ? 'add' : 'replace');
       }}
     >
-      <TopBar onMermaid={setMermaid} onHelp={() => setHelp(true)} />
+      <TopBar onMermaid={setMermaid} onHelp={() => setHelp(true)} onVideo={() => setVideo(true)} />
       <main className="workspace">
         <Canvas />
         <Toolbar />
@@ -164,6 +170,11 @@ export default function App() {
         {dropping && <div className="drop-overlay">Déposez un fichier .animflow.json, .svg AnimFlow ou Mermaid (Maj : ajouter)</div>}
       </main>
       {mermaid && <MermaidDialog mode={mermaid} onClose={() => setMermaid(null)} />}
+      {video && (
+        <Suspense fallback={null}>
+          <VideoDialog onClose={() => setVideo(false)} />
+        </Suspense>
+      )}
       {help && (
         <div className="modal-backdrop" onMouseDown={() => setHelp(false)}>
           <div className="modal panel" onMouseDown={(e) => e.stopPropagation()}>

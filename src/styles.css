@@ -548,3 +548,35 @@ kbd {
   border-color: var(--border);
   font-size: 12px;
 }
+
+.form-grid input[type='number'] {
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 6px;
+  font: inherit;
+}
+.progress-bar {
+  position: relative;
+  height: 22px;
+  border-radius: 6px;
+  background: #f3f3f6;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.progress-bar > div {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.15s;
+}
+.progress-bar > span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  mix-blend-mode: difference;
+  color: white;
+}

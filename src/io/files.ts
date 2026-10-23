@@ -32,14 +32,26 @@ const fromBase64 = (b64: string) => new TextDecoder().decode(Uint8Array.from(ato
  * SVG autonome et animé (SMIL) à partir du rendu courant du canevas.
  * Le diagramme source est embarqué dans <metadata> : le fichier peut être ré-importé.
  */
-export function exportSvgString(d: Diagram, canvas: SVGSVGElement, padding = 40): string {
+export function exportSvgString(d: Diagram, canvas: SVGSVGElement, padding = 40, aspect?: number): string {
   const content = canvas.querySelector('.af-content');
   if (!content) throw new Error('Canevas introuvable');
   const b = diagramBounds(d) ?? { minX: 0, minY: 0, maxX: 400, maxY: 300 };
-  const x = Math.floor(b.minX - padding);
-  const y = Math.floor(b.minY - padding);
-  const w = Math.ceil(b.maxX - b.minX + padding * 2);
-  const h = Math.ceil(b.maxY - b.minY + padding * 2);
+  let x = Math.floor(b.minX - padding);
+  let y = Math.floor(b.minY - padding);
+  let w = Math.ceil(b.maxX - b.minX + padding * 2);
+  let h = Math.ceil(b.maxY - b.minY + padding * 2);
+  if (aspect) {
+    // Proportions imposées (ex. 16:9 pour une vidéo) : on agrandit le cadre autour du schéma
+    if (w / h < aspect) {
+      const nw = Math.ceil(h * aspect);
+      x -= Math.round((nw - w) / 2);
+      w = nw;
+    } else {
+      const nh = Math.ceil(w / aspect);
+      y -= Math.round((nh - h) / 2);
+      h = nh;
+    }
+  }
 
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('xmlns', SVG_NS);

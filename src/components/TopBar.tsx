@@ -35,7 +35,15 @@ const Item = ({ onClick, children, hint }: { onClick: () => void; children: Reac
   </button>
 );
 
-export function TopBar({ onMermaid, onHelp }: { onMermaid: (mode: 'import' | 'export') => void; onHelp: () => void }) {
+export function TopBar({
+  onMermaid,
+  onHelp,
+  onVideo,
+}: {
+  onMermaid: (mode: 'import' | 'export') => void;
+  onHelp: () => void;
+  onVideo: () => void;
+}) {
   const playing = useStore((s) => s.playing);
   const canUndo = useStore((s) => s.past.length > 0);
   const canRedo = useStore((s) => s.future.length > 0);
@@ -67,6 +75,9 @@ export function TopBar({ onMermaid, onHelp }: { onMermaid: (mode: 'import' | 'ex
       <Menu label="Exporter">
         <Item onClick={exportSvg} hint="Ctrl+E">
           SVG animé (ré-importable)
+        </Item>
+        <Item onClick={onVideo} hint="Ctrl+Maj+E">
+          Vidéo (MP4, WebM, GIF)…
         </Item>
         <Item onClick={() => void exportPng()}>PNG (image fixe)</Item>
         <Item onClick={() => onMermaid('export')}>Code Mermaid</Item>

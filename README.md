@@ -37,6 +37,9 @@ npm run build      # build statique dans dist/
   - `.animflow.json` : format natif (Ctrl+S / Ctrl+O, ou glisser-déposer un fichier).
   - **SVG animé** (Ctrl+E) : autonome, lisible dans n'importe quel navigateur, intégrable dans une page ou un wiki ;
     il embarque le schéma source et peut être ré-ouvert dans AnimFlow.
+  - **Vidéo** (Ctrl+Maj+E) : MP4, WebM ou GIF animé, rendu image par image dans le navigateur (aucun envoi serveur),
+    caméra de suivi comprise. Taille (720p → 4K), images/s, format d'image (16:9, carré, proportions du schéma),
+    nombre de cycles en mode séquence. Le MP4 est en H.264 dans Chrome/Edge (AV1 dans Chromium, faute d'encodeur H.264).
   - PNG (image fixe).
   - **Mermaid** : import d'un `flowchart`/`graph` avec mise en page automatique (dagre), export vers Mermaid
     (liens animés exportés en `e1@{ animate: true }`, Mermaid ≥ 11.10). Coller du Mermaid dans le canevas l'importe aussi.
@@ -60,6 +63,7 @@ npm run build      # build statique dans dist/
 | `src/render/DiagramView.tsx` | Rendu SVG : formes rough.js + animations **SMIL** |
 | `src/components/Canvas.tsx` | Interactions de l'éditeur |
 | `src/io/files.ts` | Export SVG/PNG/JSON, reconnaissance des fichiers importés |
+| `src/io/video.ts` | Export vidéo : figement image par image des animations SMIL, encodage WebCodecs (mediabunny) / GIF (gifenc) |
 | `src/io/mermaid.ts` | Parseur Mermaid flowchart, mise en page dagre, export Mermaid |
 | `src/io/mermaidSequence.ts` | Parseur `sequenceDiagram`, rendus « séquence animée » et « schéma en boîtes » |
 
