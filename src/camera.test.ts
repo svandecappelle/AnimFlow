@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sequenceCycle } from './animation';
-import { CAMERA_MAX_ZOOM, cameraAt, cameraKeyframes, cameraSmil } from './camera';
+import { CAMERA_MAX_ZOOM, CAMERA_MAX_ZOOM_VERY_CLOSE, cameraAt, cameraKeyframes, cameraSmil } from './camera';
 import { createEdge, createNode, emptyDiagram } from './defaults';
 import type { Diagram } from './types';
 
@@ -46,6 +46,24 @@ describe('caméra de suivi', () => {
     expect(end.minX).toBeLessThanOrEqual(0);
     expect(end.maxX).toBeGreaterThanOrEqual(4100);
     expect(cameraAt(keys, cycle)).toEqual(cameraAt(keys, 0));
+  });
+
+  it('« Très proche » cadre plus serré que « Proche », jusqu’à 300 %', () => {
+    // petit lien a → b dans un grand schéma (une forme lointaine)
+    const small = (camera: Diagram['settings']['camera']): Diagram => {
+      const a = createNode('rectangle', 0, 0, 100, 60);
+      const b = createNode('rectangle', 300, 0, 100, 60);
+      const far = createNode('rectangle', 5000, 3000, 100, 60);
+      const e = createEdge({ nodeId: a.id, x: 0, y: 0 }, { nodeId: b.id, x: 0, y: 0 });
+      return { ...emptyDiagram(), settings: { ...emptyDiagram().settings, sequence: true, camera }, nodes: [a, b, far], edges: [e] };
+    };
+    const width = (mode: Diagram['settings']['camera']) => {
+      const b = cameraAt(cameraKeyframes(small(mode), VIEW), 0.5)!;
+      return b.maxX - b.minX;
+    };
+    expect(width('veryClose')).toBeLessThan(width('close'));
+    expect(width('close')).toBeLessThan(width('medium'));
+    expect(width('veryClose')).toBeGreaterThanOrEqual(VIEW.width / CAMERA_MAX_ZOOM_VERY_CLOSE - 1);
   });
 
   it('respecte le rapport largeur/hauteur demandé', () => {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { CAMERA_MAX_ZOOM, cameraAt, cameraKeyframes, fitViewport, leftInset, visibleArea } from '../camera';
+import { cameraAt, cameraKeyframes, cameraMaxZoom, fitViewport, leftInset, visibleArea } from '../camera';
 import { setPastePoint } from '../actions';
 import { updateCursor } from '../collab';
 import { createEdge, createNode, DEFAULT_SIZES, FONT_STACKS } from '../defaults';
@@ -72,12 +72,13 @@ export function Canvas() {
     const inset = leftInset(useStore.getState().sidebarOpen);
     const area = visibleArea(rect, inset);
     const keys = cameraKeyframes(diagram, area);
+    const maxZoom = cameraMaxZoom(diagram.settings.camera);
     if (!keys.length) return;
     let raf = 0;
     const tick = () => {
       const target = cameraAt(keys, svg.getCurrentTime());
       if (target) {
-        const goal = fitViewport(target, rect, CAMERA_MAX_ZOOM, inset);
+        const goal = fitViewport(target, rect, maxZoom, inset);
         const cur = useStore.getState().viewport;
         // Lissage : rattrape la cible sans à-coup (y compris quand on réactive la caméra)
         const k = 0.18;

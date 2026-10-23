@@ -14,7 +14,7 @@ import type { CameraMode, Diagram } from './types';
 import type { Viewport } from './store';
 
 /** Taille minimale du cadrage, en fraction de la taille totale du schéma */
-const MIN_FRACTION: Record<Exclude<CameraMode, 'off'>, number> = { close: 0.25, medium: 0.45, wide: 0.7 };
+const MIN_FRACTION: Record<Exclude<CameraMode, 'off'>, number> = { veryClose: 0.1, close: 0.25, medium: 0.45, wide: 0.7 };
 /** Durée d'un mouvement de caméra (s) */
 export const CAMERA_TRANSITION = 0.7;
 /** Durée pendant laquelle un élément qui apparaît reste « actif » (s) */
@@ -22,6 +22,10 @@ const APPEAR_FOCUS = 1;
 const PADDING = 60;
 /** Zoom maximal de la caméra (1 = taille réelle) : garde du contexte autour de l'élément suivi */
 export const CAMERA_MAX_ZOOM = 1.6;
+/** « Très proche » : zoom autorisé bien au-delà de la taille réelle, pour suivre un détail sur un grand schéma */
+export const CAMERA_MAX_ZOOM_VERY_CLOSE = 3;
+
+export const cameraMaxZoom = (mode: CameraMode) => (mode === 'veryClose' ? CAMERA_MAX_ZOOM_VERY_CLOSE : CAMERA_MAX_ZOOM);
 const EPS = 1e-3;
 
 export interface CameraKey {
@@ -64,8 +68,9 @@ export function cameraKeyframes(d: Diagram, view: { width: number; height: numbe
   const fullW = all.maxX - all.minX;
   const fullH = all.maxY - all.minY;
   const frac = MIN_FRACTION[mode];
+  const maxZoom = cameraMaxZoom(mode);
   const focus = (b: Bounds) =>
-    frame(b, Math.max(fullW * frac, view.width / CAMERA_MAX_ZOOM), Math.max(fullH * frac, view.height / CAMERA_MAX_ZOOM), aspect);
+    frame(b, Math.max(fullW * frac, view.width / maxZoom), Math.max(fullH * frac, view.height / maxZoom), aspect);
   const overview = frame(all, 0, 0, aspect, PADDING);
 
   const nodes = nodeMap(d.nodes);

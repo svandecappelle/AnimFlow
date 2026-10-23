@@ -14,7 +14,7 @@ export type Routing = 'straight' | 'curved' | 'elbow';
 export type ArrowHeads = 'end' | 'start' | 'both' | 'none';
 export type StrokeStyle = 'solid' | 'dashed' | 'dotted';
 /** Caméra qui suit l'animation (mode séquence) : désactivée ou niveau de rapprochement */
-export type CameraMode = 'off' | 'close' | 'medium' | 'wide';
+export type CameraMode = 'off' | 'veryClose' | 'close' | 'medium' | 'wide';
 
 export interface NodeElement {
   id: string;

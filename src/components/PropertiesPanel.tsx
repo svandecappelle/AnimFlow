@@ -196,6 +196,7 @@ export function PropertiesPanel() {
               }}
               options={[
                 { value: 'off', label: 'Non' },
+                { value: 'veryClose', label: 'Très proche', title: 'Zoom très serré (jusqu’à 300 %) : pour suivre un détail sur un grand schéma' },
                 { value: 'close', label: 'Proche', title: 'Zoom serré sur l’élément animé' },
                 { value: 'medium', label: 'Moyen' },
                 { value: 'wide', label: 'Large', title: 'Garde plus de contexte autour' },

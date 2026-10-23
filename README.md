@@ -41,7 +41,7 @@ doit être transmis ; `VITE_COLLAB_URL` permet aussi de pointer vers un relais h
   du premier flux entrant, et les liens qui la touchent apparaissent au démarrage de leur flux. Réglable par forme ou
   pour tout le schéma, et à l'import Mermaid. En pause, les formes masquées sont affichées en contour pointillé.
 - **Caméra de suivi** (mode séquence, touche C ou bouton 🎥) : pendant la lecture, la vue cadre les éléments en cours
-  d'animation (proche / moyen / large, zoom plafonné à 160 %), puis montre l'ensemble en fin de cycle. Zoomer ou
+  d.animation (très proche jusqu’à 300 %, proche / moyen / large plafonnés à 160 %), puis montre l'ensemble en fin de cycle. Zoomer ou
   déplacer la vue la met en pause ; Lecture, la timeline ou 🎥 la relancent. Le SVG exporté suit la même caméra
   (animation du `viewBox`).
 - **Workspaces et documents** (bouton ☰ ou touche B) : plusieurs workspaces, chacun avec plusieurs documents
