@@ -31,6 +31,9 @@ doit être transmis ; `VITE_COLLAB_URL` permet aussi de pointer vers un relais h
 - **Mode présentation** (bouton ▶ Présenter ou F5) : plein écran sans l'interface, les étapes se jouent une à une à la
   demande — clic / → / Espace / Entrée pour avancer (un appui pendant une étape la termine), ← / clic droit pour
   revenir, Début / Fin, P pour une lecture continue, Échap pour quitter. Caméra de suivi et en-têtes collants actifs.
+  **Notes du présentateur** : une note par étape (📝 dans « Ordre des étapes ») et une note d'introduction ; en
+  présentation, N les affiche à l'écran et V ouvre la **vue présentateur** (fenêtre séparée : notes, étape suivante,
+  chronomètre, commandes). Les notes suivent leur étape quand on réordonne.
 - **Ordre des étapes** (onglet du panneau de droite, touche L) : liste des étapes de la séquence ; glisser un élément sur
   une étape pour qu'il démarre avec elle, ou entre deux étapes pour en créer une. Les formes en apparition « Auto »
   suivent leurs flux. L'étape en cours est surlignée pendant la lecture. « ⚡ Auto » revient à l'ordre calculé d'après

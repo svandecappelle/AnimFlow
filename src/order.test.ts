@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyStepOrder, autoSequence, REVEAL_DURATION, retime, sequenceSteps, stepHoldTime } from './animation';
+import { applyStepOrder, autoSequence, REVEAL_DURATION, retime, sequenceSteps, stepHoldTime, stepNote, withStepNote } from './animation';
 import { createEdge, createNode, emptyDiagram } from './defaults';
 import { edgeGeometry, nodeMap, reverseEdge, snapEdge } from './geometry';
 import { excalidrawToElements } from './io/excalidraw';
@@ -58,6 +58,40 @@ describe('ordre des étapes', () => {
     const r = applyStepOrder(d, [[ab, ad, c.id], [bc]]);
     expect(r.nodes.find((n) => n.id === c.id)!.revealDelay).toBe(0);
     expect(labels(r, sequenceSteps(r)[0].items.map((i) => i.id))).toEqual(['ab', 'ad', 'C']);
+  });
+});
+
+describe('notes du présentateur', () => {
+  it('rattachées au premier élément de l’étape, elles le suivent quand on réordonne', () => {
+    const d = graph();
+    const [ab, bc, ad] = d.edges.map((e) => e.id);
+    let steps = sequenceSteps(d); // [ab, ad], [bc]
+    let r = withStepNote(d, steps[0].items.map((i) => i.id), 'Le client appelle l’API et journalise.');
+    r = withStepNote(r, steps[1].items.map((i) => i.id), 'Puis l’API écrit en base.');
+    steps = sequenceSteps(r);
+    expect(stepNote(r, steps[0])).toBe('Le client appelle l’API et journalise.');
+    expect(r.edges.find((e) => e.id === ab)!.note).toBe('Le client appelle l’API et journalise.');
+    // bc passe en premier : sa note le suit
+    const moved = applyStepOrder(r, [[bc], [ab, ad]]);
+    const s2 = sequenceSteps(moved);
+    expect(stepNote(moved, s2[0])).toBe('Puis l’API écrit en base.');
+    expect(stepNote(moved, s2[1])).toBe('Le client appelle l’API et journalise.');
+  });
+
+  it('fusion d’étapes : notes réunies ; réécrire les regroupe sur le premier élément', () => {
+    const d = graph();
+    const [ab, bc, ad] = d.edges.map((e) => e.id);
+    let r = withStepNote(d, [ab, ad], 'A');
+    r = withStepNote(r, [bc], 'B');
+    r = applyStepOrder(r, [[ab, ad, bc]]);
+    const [step] = sequenceSteps(r);
+    expect(stepNote(r, step)).toBe('A\n\nB');
+    r = withStepNote(r, step.items.map((i) => i.id), 'Tout ensemble');
+    expect(stepNote(r, sequenceSteps(r)[0])).toBe('Tout ensemble');
+    expect(r.edges.filter((e) => e.note).map((e) => e.id)).toEqual([step.items[0].id]);
+    // effacer la note la retire
+    r = withStepNote(r, step.items.map((i) => i.id), '   ');
+    expect(r.edges.some((e) => e.note !== undefined)).toBe(false);
   });
 });
 

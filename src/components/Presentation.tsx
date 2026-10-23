@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { zoomToFit } from '../actions';
-import { sequenceSteps, stepHoldTime } from '../animation';
+import { sequenceSteps, stepHoldTime, stepNote } from '../animation';
+import { stepItemNames } from '../stepLabels';
 import { getCanvasSvg, useStore, type Viewport } from '../store';
 
 /**
@@ -17,11 +19,17 @@ export function Presentation() {
   const [running, setRunning] = useState<number | null>(null);
   const [continuous, setContinuous] = useState(false);
   const [hud, setHud] = useState(true);
-  const watch = useRef(0);
+  const watch = useRef<number | undefined>(undefined);
   const hudTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const savedViewport = useRef<Viewport>(useStore.getState().viewport);
   const enteredFullscreen = useRef(false);
   const cameraOn = diagram.settings.sequence && diagram.settings.camera !== 'off';
+  const [showNotes, setShowNotes] = useState(false);
+  const [presenterWin, setPresenterWin] = useState<Window | null>(null);
+  const startedAt = useRef(Date.now());
+  /** Étape dont les notes s'appliquent : celle qui se joue, sinon la dernière terminée (-1 : introduction) */
+  const noteIndex = running ?? index;
+  const currentNote = noteIndex < 0 ? (diagram.settings.introNote ?? '').trim() : steps[noteIndex] ? stepNote(diagram, steps[noteIndex]) : '';
 
   const setPlay = (on: boolean) => {
     const svg = getCanvasSvg();
@@ -35,7 +43,7 @@ export function Presentation() {
     (i: number, animate: boolean) => {
       const svg = getCanvasSvg();
       if (!svg) return;
-      cancelAnimationFrame(watch.current);
+      clearTimeout(watch.current);
       setContinuous(false);
       setIndex(i);
       if (!animate || i < 0) {
@@ -48,16 +56,19 @@ export function Presentation() {
       svg.setCurrentTime(steps[i].start);
       setRunning(i);
       setPlay(true);
-      const tick = () => {
-        if (svg.getCurrentTime() >= target) {
+      // Minuteries plutôt que requestAnimationFrame : celui-ci est suspendu quand la fenêtre principale passe au
+      // second plan (clic dans la vue présentateur), et l'étape ne se terminerait jamais
+      const wait = () => {
+        const left = target - svg.getCurrentTime();
+        if (left <= 0.01) {
           setPlay(false);
           svg.setCurrentTime(target);
           setRunning(null);
           return;
         }
-        watch.current = requestAnimationFrame(tick);
+        watch.current = window.setTimeout(wait, Math.min(left * 1000, 250));
       };
-      watch.current = requestAnimationFrame(tick);
+      watch.current = window.setTimeout(wait, 0);
     },
     [steps],
   );
@@ -73,7 +84,7 @@ export function Presentation() {
   }, [running, index, goTo]);
 
   const exit = useCallback(() => {
-    cancelAnimationFrame(watch.current);
+    clearTimeout(watch.current);
     const s = useStore.getState();
     s.setPresenting(false);
     s.setViewport(savedViewport.current);
@@ -98,16 +109,68 @@ export function Presentation() {
     };
     document.addEventListener('fullscreenchange', onFullscreen);
     return () => {
-      cancelAnimationFrame(watch.current);
+      clearTimeout(watch.current);
       window.removeEventListener('resize', fit);
       document.removeEventListener('fullscreenchange', onFullscreen);
     };
   }, []);
 
-  // Clavier (prioritaire sur les raccourcis de l'éditeur)
+  const openPresenter = useCallback(() => {
+    if (presenterWin && !presenterWin.closed) {
+      presenterWin.focus();
+      return;
+    }
+    const win = window.open('', 'animflow-presenter', 'popup,width=820,height=600');
+    if (!win) {
+      useStore.getState().notify('Le navigateur a bloqué la fenêtre de la vue présentateur : autorisez les fenêtres surgissantes pour cette page.');
+      return;
+    }
+    win.document.title = `Vue présentateur — ${docName || 'AnimFlow'}`;
+    win.document.body.innerHTML = '';
+    win.document.body.className = 'presenter-body';
+    // Mêmes styles que l'application (adresses absolues : la fenêtre est vierge)
+    win.document.head.querySelectorAll('style, link').forEach((n) => n.remove());
+    document.head.querySelectorAll('style, link[rel="stylesheet"]').forEach((n) => {
+      const clone = n.cloneNode(true) as HTMLElement;
+      if (clone instanceof HTMLLinkElement) clone.href = (n as HTMLLinkElement).href;
+      win.document.head.append(clone);
+    });
+    win.addEventListener('pagehide', () => setPresenterWin(null));
+    setPresenterWin(win);
+  }, [presenterWin, docName]);
+
+  // La vue présentateur a sa propre racine React : les clics de sa fenêtre ne remontent pas jusqu'à la page
+  const [presenterRoot, setPresenterRoot] = useState<Root | null>(null);
+  useEffect(() => {
+    if (!presenterWin) return;
+    const container = presenterWin.document.createElement('div');
+    presenterWin.document.body.append(container);
+    const root = createRoot(container);
+    setPresenterRoot(root);
+    return () => {
+      setPresenterRoot(null);
+      // Démonté après le rendu en cours (React refuse un démontage synchrone pendant un rendu)
+      setTimeout(() => root.unmount());
+      presenterWin.close(); // la vue présentateur se ferme avec la présentation
+    };
+  }, [presenterWin]);
+
+  // Clavier (prioritaire sur les raccourcis de l'éditeur), aussi dans la fenêtre présentateur
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const k = e.key;
+      if ((k === 'n' || k === 'N') && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setShowNotes((v) => !v);
+        return;
+      }
+      if ((k === 'v' || k === 'V') && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        openPresenter();
+        return;
+      }
       const handled = ['ArrowRight', 'ArrowDown', ' ', 'Enter', 'PageDown', 'ArrowLeft', 'ArrowUp', 'Backspace', 'PageUp', 'Home', 'End', 'Escape', 'p', 'P', 'F5'];
       if (!handled.includes(k) || e.ctrlKey || e.metaKey) return;
       e.preventDefault();
@@ -119,7 +182,7 @@ export function Presentation() {
       else if (k === 'Escape') exit();
       else if (k === 'p' || k === 'P') {
         // Lecture continue (boucle complète), comme dans l'éditeur
-        cancelAnimationFrame(watch.current);
+        clearTimeout(watch.current);
         setRunning(null);
         const on = !(continuous && playing);
         setContinuous(on);
@@ -127,8 +190,12 @@ export function Presentation() {
       }
     };
     window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [next, prev, goTo, exit, steps.length, continuous, playing]);
+    presenterWin?.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      presenterWin?.removeEventListener('keydown', onKey, true);
+    };
+  }, [next, prev, goTo, exit, steps.length, continuous, playing, openPresenter, presenterWin]);
 
   // Barre de navigation masquée quand la souris ne bouge plus
   const wake = () => {
@@ -186,10 +253,108 @@ export function Presentation() {
           ▶
         </button>
         <div className="sep" />
+        <button className={`btn ${showNotes ? 'active' : ''}`} title="Afficher les notes à l’écran (N)" onClick={() => setShowNotes((v) => !v)}>
+          📝 Notes
+        </button>
+        <button className="btn" title="Ouvrir la vue présentateur dans une autre fenêtre (V)" onClick={openPresenter}>
+          🖥 Vue présentateur
+        </button>
         <button className="btn" title="Quitter la présentation (Échap)" onClick={exit}>
           Quitter
         </button>
       </div>
+      {showNotes && (
+        <div className="presentation-notes panel">
+          <div className="notes-title">{noteIndex < 0 ? 'Introduction' : `Notes — étape ${noteIndex + 1}`}</div>
+          <div className="notes-text">{currentNote || <span className="muted">Pas de notes pour cette étape.</span>}</div>
+        </div>
+      )}
+      <PresenterRender
+        root={presenterRoot}
+        view={
+          <PresenterView
+            title={docName}
+            label={label}
+            note={currentNote}
+            noteTitle={noteIndex < 0 ? 'Introduction' : `Étape ${noteIndex + 1}`}
+            nextNames={steps[(running ?? index) + 1] ? stepItemNames(diagram, steps[(running ?? index) + 1]) : null}
+            nextNote={steps[(running ?? index) + 1] ? stepNote(diagram, steps[(running ?? index) + 1]) : ''}
+            startedAt={startedAt.current}
+            onPrev={prev}
+            onNext={next}
+            canPrev={!!steps.length && !(index < 0 && running === null)}
+            canNext={!!steps.length && !(index >= steps.length - 1 && running === null)}
+          />
+        }
+      />
     </>
+  );
+}
+
+/** Rend la vue présentateur dans sa racine (fenêtre séparée) à chaque mise à jour. */
+function PresenterRender({ root, view }: { root: Root | null; view: React.ReactElement }) {
+  useEffect(() => {
+    root?.render(view);
+  });
+  return null;
+}
+
+/** Vue présentateur (fenêtre séparée) : notes de l'étape, étape suivante, chronomètre, commandes. */
+function PresenterView(props: {
+  title: string;
+  label: string;
+  note: string;
+  noteTitle: string;
+  nextNames: string[] | null;
+  nextNote: string;
+  startedAt: number;
+  onPrev: () => void;
+  onNext: () => void;
+  canPrev: boolean;
+  canNext: boolean;
+}) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const elapsed = Math.floor((now - props.startedAt) / 1000);
+  const clock = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`;
+  return (
+    <div className="presenter">
+      <header className="presenter-head">
+        <span className="presenter-doc">{props.title || 'Présentation'}</span>
+        <span className="presenter-step">{props.label}</span>
+        <span className="presenter-clock" title="Temps écoulé">
+          ⏱ {clock}
+        </span>
+        <button className="btn" disabled={!props.canPrev} onClick={props.onPrev}>
+          ◀ Précédent
+        </button>
+        <button className="btn primary" disabled={!props.canNext} onClick={props.onNext}>
+          Suivant ▶
+        </button>
+      </header>
+      <section className="presenter-notes">
+        <h3>{props.noteTitle}</h3>
+        <div className="presenter-note-text">{props.note || <span className="muted">Pas de notes pour cette étape.</span>}</div>
+      </section>
+      <section className="presenter-next">
+        <h3>Ensuite</h3>
+        {props.nextNames ? (
+          <>
+            <ul>
+              {props.nextNames.map((n, i) => (
+                <li key={i}>{n}</li>
+              ))}
+            </ul>
+            {props.nextNote && <p className="presenter-next-note">{props.nextNote.split('\n')[0]}</p>}
+          </>
+        ) : (
+          <p className="muted">Fin de la présentation.</p>
+        )}
+      </section>
+      <footer className="muted">→ / Espace : suivant · ← : précédent · N : notes à l’écran · Échap : quitter</footer>
+    </div>
   );
 }

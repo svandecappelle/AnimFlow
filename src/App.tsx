@@ -47,7 +47,7 @@ const SHORTCUTS: [string, string][] = [
   ['Ctrl+Z / Ctrl+Maj+Z', 'Annuler / rétablir'],
   ['Suppr', 'Supprimer'],
   ['Flèches', 'Déplacer (Maj : ×10)'],
-  ['F5', 'Mode présentation (→ / ← : étapes, Échap : quitter)'],
+  ['F5', 'Mode présentation (→ / ← : étapes, N : notes, V : vue présentateur, Échap : quitter)'],
   ['B', 'Panneau des documents et workspaces'],
   ['P', 'Lecture / pause des animations'],
   ['L', 'Panneau « Ordre des étapes »'],
@@ -89,6 +89,13 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // F5 lance la présentation même depuis un champ de saisie (sinon le navigateur recharge la page)
+      if (e.key === 'F5' && !e.ctrlKey && !e.metaKey && !useStore.getState().presenting) {
+        e.preventDefault();
+        (document.activeElement as HTMLElement | null)?.blur();
+        useStore.getState().setPresenting(true);
+        return;
+      }
       if (isTyping(e.target)) return;
       const s = useStore.getState();
       if (s.editingId) return;
@@ -107,8 +114,7 @@ export default function App() {
         e.preventDefault();
         return;
       }
-      if (e.key === 'F5') s.setPresenting(true);
-      else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
+      if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
       else if (e.key === 'Escape') {
         s.select([]);
         s.setTool('select');

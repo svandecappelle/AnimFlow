@@ -40,6 +40,8 @@ export interface NodeElement {
   revealDelay: number | null;
   /** En-tête collant : reste affiché en haut de la vue quand la forme en sort (participants d'un diagramme de séquence) */
   sticky?: boolean;
+  /** Notes du présentateur de l'étape dont cette forme est le premier élément */
+  note?: string;
   seed: number;
 }
 
@@ -86,6 +88,8 @@ export interface EdgeElement {
   curvature?: number;
   /** Rappelle le nom de la forme de départ à intervalles réguliers le long du lien (lignes de vie) */
   repeatLabel?: boolean;
+  /** Notes du présentateur de l'étape dont ce lien est le premier élément */
+  note?: string;
   seed: number;
 }
 
@@ -103,6 +107,8 @@ export interface DiagramSettings {
   loopPause: number;
   /** Ordre fixé à la main (panneau « Ordre des étapes ») : minutage linéaire, étape après étape */
   manualOrder: boolean;
+  /** Notes du présentateur affichées avant la première étape */
+  introNote?: string;
   camera: CameraMode;
 }
 

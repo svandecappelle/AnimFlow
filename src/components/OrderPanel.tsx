@@ -1,27 +1,48 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { applyAutoSequence } from '../actions';
-import { applyStepOrder, sequenceCycle, sequenceSteps, type StepItem } from '../animation';
+import { applyStepOrder, sequenceCycle, sequenceSteps, stepNote, withStepNote, type StepItem } from '../animation';
+import { edgeName, nodeName } from '../stepLabels';
 import { getCanvasSvg, useStore } from '../store';
-import type { Diagram, EdgeElement, NodeElement } from '../types';
+import type { Diagram } from '../types';
 
 const ANIM_ICONS: Record<string, string> = { flow: '┅', particles: '•••', comet: '☄', draw: '✎', none: '▭' };
-const SHAPE_NAMES: Record<string, string> = { rectangle: 'Rectangle', rounded: 'Rectangle', ellipse: 'Ellipse', diamond: 'Losange', text: 'Texte' };
 
-const firstLine = (s: string) => s.split('\n')[0].trim();
-const nodeName = (n?: NodeElement) => (n ? firstLine(n.label) || SHAPE_NAMES[n.shape] : '•');
-
-function edgeName(e: EdgeElement, nodes: Map<string, NodeElement>) {
-  const route = `${nodeName(e.source.nodeId ? nodes.get(e.source.nodeId) : undefined)} → ${nodeName(e.target.nodeId ? nodes.get(e.target.nodeId) : undefined)}`;
-  return e.label ? `${firstLine(e.label)} (${route})` : route;
+/**
+ * Notes du présentateur (étape ou introduction). Une seule entrée d'historique par séance d'édition ; le texte
+ * suit les modifications venues d'ailleurs (annulation, collaborateurs) quand le champ n'a pas le focus.
+ */
+function NoteField({ value, placeholder, onChange }: { value: string; placeholder: string; onChange: (v: string) => void }) {
+  const [text, setText] = useState(value);
+  const [focused, setFocused] = useState(false);
+  useEffect(() => {
+    if (!focused) setText(value);
+  }, [value, focused]);
+  return (
+    <textarea
+      className="step-note"
+      value={text}
+      placeholder={placeholder}
+      rows={Math.min(8, Math.max(2, text.split('\n').length))}
+      onFocus={() => {
+        setFocused(true);
+        useStore.getState().pushHistory();
+      }}
+      onBlur={() => setFocused(false)}
+      onChange={(e) => {
+        setText(e.target.value);
+        onChange(e.target.value);
+      }}
+    />
+  );
 }
-
 /** Où déposer l'élément glissé : dans une étape (démarre avec elle) ou entre deux étapes (nouvelle étape). */
 type DropTarget = { kind: 'join'; step: number } | { kind: 'insert'; index: number };
 
 export function OrderPanel() {
   const diagram = useStore((s) => s.diagram);
   const selectedIds = useStore((s) => s.selectedIds);
-  const { select, commit } = useStore.getState();
+  const { select, commit, apply } = useStore.getState();
+  const [openNotes, setOpenNotes] = useState<Set<string>>(new Set());
   const steps = useMemo(() => sequenceSteps(diagram), [diagram]);
   const nodes = useMemo(() => new Map(diagram.nodes.map((n) => [n.id, n])), [diagram.nodes]);
   const edges = useMemo(() => new Map(diagram.edges.map((e) => [e.id, e])), [diagram.edges]);
@@ -137,6 +158,15 @@ export function OrderPanel() {
         Glissez un élément <b>sur une étape</b> pour qu’il démarre avec elle, ou <b>entre deux étapes</b> pour en créer une nouvelle.
       </p>
 
+      <details className="intro-note" open={!!diagram.settings.introNote || undefined}>
+        <summary>📝 Note d’introduction (avant la 1re étape)</summary>
+        <NoteField
+          value={diagram.settings.introNote ?? ''}
+          placeholder="Ce que vous direz avant de lancer la première étape…"
+          onChange={(v) => apply((d) => ({ ...d, settings: { ...d.settings, introNote: v.trim() ? v : undefined } }))}
+        />
+      </details>
+
       <div className="step-list" ref={listRef}>
         {steps.map((s, i) => (
           <div key={i}>
@@ -146,6 +176,21 @@ export function OrderPanel() {
                 <span>Étape {i + 1}</span>
                 <span className="muted">
                   {s.start.toFixed(1)} s → {s.end.toFixed(1)} s
+                  <button
+                    className={`note-toggle ${stepNote(diagram, s) ? 'has-note' : ''}`}
+                    title="Notes du présentateur pour cette étape"
+                    onClick={() =>
+                      setOpenNotes((prev) => {
+                        const next = new Set(prev);
+                        const key = s.items[0].id;
+                        if (next.has(key)) next.delete(key);
+                        else next.add(key);
+                        return next;
+                      })
+                    }
+                  >
+                    📝
+                  </button>
                 </span>
               </div>
               {s.items.map(itemRow)}
@@ -154,6 +199,14 @@ export function OrderPanel() {
                   ↳ apparaît : {nodeName(nodes.get(id))}
                 </div>
               ))}
+              {(stepNote(diagram, s) || openNotes.has(s.items[0].id)) && (
+                <NoteField
+                  key={s.items[0].id}
+                  value={stepNote(diagram, s)}
+                  placeholder="Notes du présentateur pour cette étape…"
+                  onChange={(v) => apply((d) => withStepNote(d, s.items.map((it) => it.id), v))}
+                />
+              )}
             </div>
           </div>
         ))}

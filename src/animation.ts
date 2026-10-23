@@ -446,3 +446,26 @@ export function stepHoldTime(steps: SequenceStep[], i: number): number {
   const next = steps[i + 1];
   return next ? Math.max(s.start, Math.min(end, next.start - 0.02)) : end;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Notes du présentateur : portées par les éléments d'une étape (elles suivent l'élément quand on réordonne)
+
+const noteOf = (d: Diagram, id: string) => (d.edges.find((e) => e.id === id) ?? d.nodes.find((n) => n.id === id))?.note?.trim() ?? '';
+
+/** Notes d'une étape : celles de ses éléments, dans l'ordre (plusieurs si des étapes ont été fusionnées). */
+export function stepNote(d: Diagram, step: SequenceStep): string {
+  return step.items
+    .map((i) => noteOf(d, i.id))
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+/** Enregistre les notes d'une étape sur son premier élément (les autres éléments de l'étape n'en portent plus). */
+export function withStepNote(d: Diagram, itemIds: string[], text: string): Diagram {
+  const [lead, ...rest] = itemIds;
+  const others = new Set(rest);
+  const note = text.trim() ? text : undefined;
+  const set = <T extends { id: string; note?: string }>(el: T): T =>
+    el.id === lead ? { ...el, note } : others.has(el.id) && el.note !== undefined ? { ...el, note: undefined } : el;
+  return { ...d, edges: d.edges.map(set), nodes: d.nodes.map(set) };
+}
