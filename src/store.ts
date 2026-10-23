@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createExampleDiagram } from './example';
+import { applyTheme, loadThemePref, saveThemePref, type ThemePref } from './theme';
 import type { Diagram } from './types';
 import { docMeta, loadIndex, saveDoc, saveIndex, type Workspace } from './workspace';
 
@@ -68,6 +69,7 @@ interface State {
   presenting: boolean;
   /** À l'arrêt sur l'état final de la séquence (vue d'édition par défaut) */
   parked: boolean;
+  theme: ThemePref;
 
   setTool(tool: Tool): void;
   select(ids: string[]): void;
@@ -83,6 +85,7 @@ interface State {
   setRightTab(tab: 'props' | 'order'): void;
   setPresenting(p: boolean): void;
   setParked(p: boolean): void;
+  setTheme(t: ThemePref): void;
   /** Met à jour l'index des workspaces (persisté immédiatement). */
   setWorkspaces(patch: Partial<Pick<State, 'workspaces' | 'currentWorkspaceId' | 'currentDocId'>>): void;
   /** Bascule vers un autre document : sauvegarde le courant, conserve son historique d'annulation. */
@@ -127,6 +130,7 @@ export const useStore = create<State>((set, get) => ({
   rightTab: 'props',
   presenting: false,
   parked: false,
+  theme: loadThemePref(),
   selectedIds: [],
   tool: 'select',
   viewport: { x: 0, y: 0, zoom: 1 },
@@ -154,6 +158,11 @@ export const useStore = create<State>((set, get) => ({
   setPeers: (peers) => set({ peers }),
   setRightTab: (rightTab) => set({ rightTab }),
   setParked: (parked) => set({ parked }),
+  setTheme: (theme) => {
+    saveThemePref(theme);
+    applyTheme(theme);
+    set({ theme });
+  },
   setPresenting: (presenting) => set(presenting ? { presenting, selectedIds: [], editingId: null, cameraSuspended: false } : { presenting }),
   notify: (toast) => {
     set({ toast });

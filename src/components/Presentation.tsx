@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { zoomToFit } from '../actions';
 import { sequenceSteps, stepHoldTime, stepNote } from '../animation';
 import { stepItemNames } from '../stepLabels';
+import { applyTheme } from '../theme';
 import { getCanvasSvg, useStore, type Viewport } from '../store';
 
 /**
@@ -133,6 +134,7 @@ export function Presentation() {
     win.document.title = `Vue présentateur — ${docName || 'AnimFlow'}`;
     win.document.body.innerHTML = '';
     win.document.body.className = 'presenter-body';
+    applyTheme(useStore.getState().theme, win.document);
     // Mêmes styles que l'application (adresses absolues : la fenêtre est vierge)
     win.document.head.querySelectorAll('style, link').forEach((n) => n.remove());
     document.head.querySelectorAll('style, link[rel="stylesheet"]').forEach((n) => {
@@ -143,6 +145,12 @@ export function Presentation() {
     win.addEventListener('pagehide', () => setPresenterWin(null));
     setPresenterWin(win);
   }, [presenterWin, docName]);
+
+  // La vue présentateur suit le thème
+  const theme = useStore((s) => s.theme);
+  useEffect(() => {
+    if (presenterWin) applyTheme(theme, presenterWin.document);
+  }, [theme, presenterWin]);
 
   // La vue présentateur a sa propre racine React : les clics de sa fenêtre ne remontent pas jusqu'à la page
   const [presenterRoot, setPresenterRoot] = useState<Root | null>(null);

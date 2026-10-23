@@ -25,6 +25,7 @@ import { Timeline } from './components/Timeline';
 import { TOOL_KEYS, Toolbar } from './components/Toolbar';
 import { TopBar } from './components/TopBar';
 import { useStore } from './store';
+import { applyTheme, onSystemThemeChange, resolveTheme } from './theme';
 
 // Chargé à la demande : l'encodeur vidéo est volumineux
 const VideoDialog = lazy(() => import('./components/VideoDialog').then((m) => ({ default: m.VideoDialog })));
@@ -49,6 +50,7 @@ const SHORTCUTS: [string, string][] = [
   ['Flèches', 'Déplacer (Maj : ×10)'],
   ['F5', 'Mode présentation (→ / ← : étapes, L : laser, N : notes, V : vue présentateur, Échap : quitter)'],
   ['B', 'Panneau des documents et workspaces'],
+  ['Alt+Maj+D', 'Mode sombre / clair'],
   ['P', 'Lecture / pause des animations'],
   ['L', 'Panneau « Ordre des étapes »'],
   ['Maj+R', 'Inverser le lien sélectionné'],
@@ -71,6 +73,9 @@ export default function App() {
   useEffect(() => {
     requestAnimationFrame(() => zoomToFit());
   }, []);
+
+  // Mode « Système » : suit le réglage de l'ordinateur
+  useEffect(() => onSystemThemeChange(() => applyTheme(useStore.getState().theme)), []);
 
   // Lien de collaboration (#room=…) : à l'ouverture et quand il change
   useEffect(() => {
@@ -101,6 +106,12 @@ export default function App() {
       if (s.editingId) return;
       const mod = e.ctrlKey || e.metaKey;
       const k = e.key.toLowerCase();
+      if (e.altKey && e.shiftKey && e.code === 'KeyD') {
+        // Alt+Maj+D (comme Excalidraw) : bascule clair / sombre
+        s.setTheme(resolveTheme(s.theme) === 'dark' ? 'light' : 'dark');
+        e.preventDefault();
+        return;
+      }
       if (mod) {
         if (k === 'z') (e.shiftKey ? s.redo : s.undo)();
         else if (k === 'y') s.redo();

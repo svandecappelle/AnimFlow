@@ -61,6 +61,8 @@ doit être transmis ; `VITE_COLLAB_URL` permet aussi de pointer vers un relais h
   Chaque participant garde une copie dans ses documents ; rouvrir le lien rouvre ce document. Le relais (intégré à
   Vite et à `npm start`) ne garde une session en mémoire que tant qu'un participant est connecté. Le contenu transite
   en clair par le relais : hébergez-le vous-même.
+- **Mode sombre** (bouton ☀️ / 🌙 / 🖥️ ou Alt+Maj+D) : clair, sombre ou selon le système. Le schéma est affiché
+  inversé comme dans Excalidraw ; ses couleurs réelles (et les exports) ne changent pas.
 - **Import / export**
   - `.animflow.json` : format natif (Ctrl+S / Ctrl+O, ou glisser-déposer un fichier).
   - **SVG animé** (Ctrl+E) : autonome, lisible dans n'importe quel navigateur, intégrable dans une page ou un wiki ;

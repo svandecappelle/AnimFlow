@@ -176,6 +176,7 @@ export function TopBar({
       >
         {Math.round(zoom * 100)} %
       </button>
+      <ThemeButton />
       <button className="icon-btn" title="Aide & raccourcis — ?" onClick={onHelp}>
         {icons.help}
       </button>
@@ -217,5 +218,28 @@ function DocTitle() {
         </span>
       )}
     </div>
+  );
+}
+
+const THEMES = [
+  { value: 'light', icon: '☀️', label: 'Clair' },
+  { value: 'dark', icon: '🌙', label: 'Sombre' },
+  { value: 'system', icon: '🖥️', label: 'Système' },
+] as const;
+
+/** Thème de l'interface : clair → sombre → système (Alt+Maj+D bascule clair / sombre). */
+function ThemeButton() {
+  const theme = useStore((s) => s.theme);
+  const i = THEMES.findIndex((t) => t.value === theme);
+  const current = THEMES[i];
+  const next = THEMES[(i + 1) % THEMES.length];
+  return (
+    <button
+      className="icon-btn"
+      title={`Thème : ${current.label} — cliquer pour « ${next.label} » (Alt+Maj+D : clair / sombre)`}
+      onClick={() => useStore.getState().setTheme(next.value)}
+    >
+      {current.icon}
+    </button>
   );
 }
