@@ -25,6 +25,8 @@ export function Presentation() {
   const enteredFullscreen = useRef(false);
   const cameraOn = diagram.settings.sequence && diagram.settings.camera !== 'off';
   const [showNotes, setShowNotes] = useState(false);
+  const [laser, setLaser] = useState(false);
+  const pressAt = useRef<{ x: number; y: number } | null>(null);
   const [presenterWin, setPresenterWin] = useState<Window | null>(null);
   const startedAt = useRef(Date.now());
   /** Étape dont les notes s'appliquent : celle qui se joue, sinon la dernière terminée (-1 : introduction) */
@@ -159,6 +161,12 @@ export function Presentation() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const k = e.key;
+      if ((k === 'l' || k === 'L') && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setLaser((v) => !v);
+        return;
+      }
       if ((k === 'n' || k === 'N') && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -198,7 +206,9 @@ export function Presentation() {
   }, [next, prev, goTo, exit, steps.length, continuous, playing, openPresenter, presenterWin]);
 
   // Barre de navigation masquée quand la souris ne bouge plus
-  const wake = () => {
+  const wake = (e?: React.MouseEvent) => {
+    // Avec le laser, la barre ne réapparaît qu'en approchant du bas de l'écran
+    if (laser && e && e.clientY < window.innerHeight - 140) return;
     setHud(true);
     clearTimeout(hudTimer.current);
     hudTimer.current = setTimeout(() => setHud(false), 2500);
@@ -221,14 +231,21 @@ export function Presentation() {
   return (
     <>
       <div
-        className="presentation-surface"
+        className={`presentation-surface ${laser ? 'laser' : ''}`}
         onMouseMove={wake}
-        onClick={next}
+        onMouseDown={(e) => (pressAt.current = { x: e.clientX, y: e.clientY })}
+        onClick={(e) => {
+          // Avec le laser, un glissé sert à tracer : seul un vrai clic avance
+          const p = pressAt.current;
+          if (laser && p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 5) return;
+          next();
+        }}
         onContextMenu={(e) => {
           e.preventDefault();
           prev();
         }}
       />
+      {laser && <LaserPointer />}
       {docName && <div className={`presentation-title ${hud ? '' : 'hidden'}`}>{docName}</div>}
       <div className={`presentation-hud panel ${hud ? '' : 'hidden'}`} onMouseMove={wake}>
         <button className="icon-btn" title="Étape précédente (←)" disabled={!steps.length || (index < 0 && running === null)} onClick={prev}>
@@ -253,6 +270,9 @@ export function Presentation() {
           ▶
         </button>
         <div className="sep" />
+        <button className={`btn ${laser ? 'active' : ''}`} title="Pointeur laser (L) — glisser pour tracer" onClick={() => setLaser((v) => !v)}>
+          🔴 Laser
+        </button>
         <button className={`btn ${showNotes ? 'active' : ''}`} title="Afficher les notes à l’écran (N)" onClick={() => setShowNotes((v) => !v)}>
           📝 Notes
         </button>
@@ -289,6 +309,98 @@ export function Presentation() {
       />
     </>
   );
+}
+
+const LASER_COLOR = '255, 45, 45';
+/** Durée de vie d'un point de traînée (ms) : courte au survol, plus longue pour un trait tracé */
+const TRAIL_LIFE = 450;
+const STROKE_LIFE = 1500;
+
+/** Pointeur laser : point lumineux qui suit la souris, traînée courte, traits tracés (glisser) qui s'effacent. */
+function LaserPointer() {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current!;
+    const ctx = canvas.getContext('2d')!;
+    const points: { x: number; y: number; t: number; stroke: boolean }[] = [];
+    let head: { x: number; y: number } | null = null;
+    let drawing = false;
+    let raf = 0;
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+
+    const frame = () => {
+      const now = performance.now();
+      while (points.length && now - points[0].t > (points[0].stroke ? STROKE_LIFE : TRAIL_LIFE)) points.shift();
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      for (let i = 1; i < points.length; i++) {
+        const a = points[i - 1];
+        const b = points[i];
+        if (b.t - a.t > 120) continue; // pas de segment entre deux gestes séparés
+        const life = b.stroke ? STROKE_LIFE : TRAIL_LIFE;
+        const alpha = Math.max(0, 1 - (now - b.t) / life);
+        ctx.strokeStyle = `rgba(${LASER_COLOR}, ${alpha})`;
+        ctx.lineWidth = (b.stroke ? 5 : 3) * (0.4 + 0.6 * alpha);
+        ctx.shadowColor = `rgba(${LASER_COLOR}, ${alpha})`;
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+      if (head) {
+        ctx.shadowColor = `rgba(${LASER_COLOR}, 0.9)`;
+        ctx.shadowBlur = 18;
+        ctx.fillStyle = `rgb(${LASER_COLOR})`;
+        ctx.beginPath();
+        ctx.arc(head.x, head.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.beginPath();
+        ctx.arc(head.x, head.y, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+
+    const move = (e: MouseEvent) => {
+      head = { x: e.clientX, y: e.clientY };
+      points.push({ x: e.clientX, y: e.clientY, t: performance.now(), stroke: drawing });
+    };
+    const down = (e: MouseEvent) => {
+      if (e.button === 0) drawing = true;
+    };
+    const up = () => {
+      drawing = false;
+    };
+    const leave = () => {
+      head = null;
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mousedown', down);
+    window.addEventListener('mouseup', up);
+    document.addEventListener('mouseleave', leave);
+    window.addEventListener('resize', resize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mousedown', down);
+      window.removeEventListener('mouseup', up);
+      document.removeEventListener('mouseleave', leave);
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+  return <canvas ref={ref} className="laser-layer" />;
 }
 
 /** Rend la vue présentateur dans sa racine (fenêtre séparée) à chaque mise à jour. */
@@ -354,7 +466,7 @@ function PresenterView(props: {
           <p className="muted">Fin de la présentation.</p>
         )}
       </section>
-      <footer className="muted">→ / Espace : suivant · ← : précédent · N : notes à l’écran · Échap : quitter</footer>
+      <footer className="muted">→ / Espace : suivant · ← : précédent · L : laser · N : notes à l’écran · Échap : quitter</footer>
     </div>
   );
 }

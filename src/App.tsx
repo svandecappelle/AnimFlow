@@ -47,7 +47,7 @@ const SHORTCUTS: [string, string][] = [
   ['Ctrl+Z / Ctrl+Maj+Z', 'Annuler / rétablir'],
   ['Suppr', 'Supprimer'],
   ['Flèches', 'Déplacer (Maj : ×10)'],
-  ['F5', 'Mode présentation (→ / ← : étapes, N : notes, V : vue présentateur, Échap : quitter)'],
+  ['F5', 'Mode présentation (→ / ← : étapes, L : laser, N : notes, V : vue présentateur, Échap : quitter)'],
   ['B', 'Panneau des documents et workspaces'],
   ['P', 'Lecture / pause des animations'],
   ['L', 'Panneau « Ordre des étapes »'],
