@@ -66,6 +66,8 @@ interface State {
   rightTab: 'props' | 'order';
   /** Mode présentation (plein écran, navigation étape par étape) */
   presenting: boolean;
+  /** À l'arrêt sur l'état final de la séquence (vue d'édition par défaut) */
+  parked: boolean;
 
   setTool(tool: Tool): void;
   select(ids: string[]): void;
@@ -80,6 +82,7 @@ interface State {
   notify(message: string): void;
   setRightTab(tab: 'props' | 'order'): void;
   setPresenting(p: boolean): void;
+  setParked(p: boolean): void;
   /** Met à jour l'index des workspaces (persisté immédiatement). */
   setWorkspaces(patch: Partial<Pick<State, 'workspaces' | 'currentWorkspaceId' | 'currentDocId'>>): void;
   /** Bascule vers un autre document : sauvegarde le courant, conserve son historique d'annulation. */
@@ -123,12 +126,14 @@ export const useStore = create<State>((set, get) => ({
       : null,
   rightTab: 'props',
   presenting: false,
+  parked: false,
   selectedIds: [],
   tool: 'select',
   viewport: { x: 0, y: 0, zoom: 1 },
   past: [],
   future: [],
-  playing: true,
+  // Animation à l'arrêt au démarrage : on la lance avec Lecture (ou P)
+  playing: false,
   restartToken: 0,
   editingId: null,
   cameraSuspended: false,
@@ -148,6 +153,7 @@ export const useStore = create<State>((set, get) => ({
     })),
   setPeers: (peers) => set({ peers }),
   setRightTab: (rightTab) => set({ rightTab }),
+  setParked: (parked) => set({ parked }),
   setPresenting: (presenting) => set(presenting ? { presenting, selectedIds: [], editingId: null, cameraSuspended: false } : { presenting }),
   notify: (toast) => {
     set({ toast });

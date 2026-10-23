@@ -4,6 +4,7 @@ import { setPastePoint } from '../actions';
 import { updateCursor } from '../collab';
 import { createEdge, createNode, DEFAULT_SIZES, FONT_STACKS } from '../defaults';
 import { center, distanceToPolyline, nodeContains, nodeMap, type EdgeGeometry } from '../geometry';
+import { staticTime } from '../animation';
 import { computeGeometries, DiagramContent } from '../render/DiagramView';
 import { setCanvasSvg, useStore, type Peer, type Viewport } from '../store';
 import { measureText } from '../text';
@@ -54,15 +55,42 @@ export function Canvas() {
     return () => setCanvasSvg(null);
   }, []);
 
+  // À l'arrêt (hors présentation), on montre l'état final de la séquence ; Lecture repart alors du début
+  const parked = useStore((s) => s.parked);
+  const park = () => {
+    const svg = svgRef.current;
+    const s = useStore.getState();
+    if (!svg || s.playing || s.presenting) return;
+    svg.pauseAnimations();
+    svg.setCurrentTime(staticTime(s.diagram));
+    if (!s.parked) s.setParked(true);
+  };
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
-    if (playing) svg.unpauseAnimations();
-    else svg.pauseAnimations();
+    if (playing) {
+      if (useStore.getState().parked) {
+        svg.setCurrentTime(0);
+        useStore.getState().setParked(false);
+      }
+      svg.unpauseAnimations();
+    } else svg.pauseAnimations();
   }, [playing]);
+  // Au chargement, en changeant de document, et en quittant la présentation
+  const currentDocId = useStore((s) => s.currentDocId);
+  const presentingNow = useStore((s) => s.presenting);
+  useEffect(() => {
+    if (!presentingNow) park();
+  }, [currentDocId, presentingNow]);
+  // Tant qu'on n'a pas lancé la lecture, l'état final suit les modifications (minutage, ajouts…)
+  useEffect(() => {
+    if (useStore.getState().parked && !playing) park();
+  }, [diagram.settings, diagram.edges, diagram.nodes, playing]);
 
   useEffect(() => {
-    if (restartToken) svgRef.current?.setCurrentTime(0);
+    if (!restartToken) return;
+    svgRef.current?.setCurrentTime(0);
+    useStore.getState().setParked(false);
   }, [restartToken]);
 
   // Caméra de suivi : cadre les éléments en cours d'animation (mode séquence, pendant la lecture)
@@ -448,7 +476,8 @@ export function Canvas() {
             handlePoints={handlePoints}
             drag={drag}
             nodesById={nodesById}
-            ghosts={diagram.settings.sequence ? diagram.nodes.filter((n) => n.reveal !== 'none' && (!playing || selected.has(n.id))) : []}
+            // Contours des formes à apparition : utiles à l'arrêt en cours de séquence (à l'état final tout est visible)
+            ghosts={diagram.settings.sequence ? diagram.nodes.filter((n) => n.reveal !== 'none' && ((!playing && !parked) || selected.has(n.id))) : []}
           />}
           {peers.length > 0 && !presenting && <RemotePresence peers={peers} nodesById={nodesById} geometries={geometries} zoom={viewport.zoom} />}
         </g>

@@ -22,6 +22,8 @@ export function Presentation() {
   const watch = useRef<number | undefined>(undefined);
   const hudTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const savedViewport = useRef<Viewport>(useStore.getState().viewport);
+  /** État de lecture de l'éditeur avant la présentation, rétabli en sortant */
+  const wasPlaying = useRef(useStore.getState().playing);
   const enteredFullscreen = useRef(false);
   const cameraOn = diagram.settings.sequence && diagram.settings.camera !== 'off';
   const [showNotes, setShowNotes] = useState(false);
@@ -90,8 +92,7 @@ export function Presentation() {
     const s = useStore.getState();
     s.setPresenting(false);
     s.setViewport(savedViewport.current);
-    getCanvasSvg()?.unpauseAnimations();
-    s.setPlaying(true);
+    s.setPlaying(wasPlaying.current);
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
   }, []);
 
@@ -103,7 +104,9 @@ export function Presentation() {
       .catch(() => {});
     const fit = () => !cameraOn && requestAnimationFrame(() => zoomToFit());
     fit();
+    // Jamais de lecture automatique : on part de l'état initial, à l'arrêt (P pour une lecture continue)
     if (steps.length) goTo(-1, false);
+    else setPlay(false);
     window.addEventListener('resize', fit);
     const onFullscreen = () => {
       // Échap géré par le navigateur pour quitter le plein écran : on quitte aussi la présentation

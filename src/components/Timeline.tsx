@@ -47,6 +47,7 @@ export function Timeline() {
           const now = svg.getCurrentTime();
           svg.setCurrentTime(now - (now % cycle) + frac * cycle);
           useStore.getState().setCameraSuspended(false);
+          useStore.getState().setParked(false); // position choisie : ne plus revenir à l'état final
         }}
       >
         {markers.map((e) => (

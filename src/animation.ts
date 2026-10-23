@@ -469,3 +469,14 @@ export function withStepNote(d: Diagram, itemIds: string[], text: string): Diagr
     el.id === lead ? { ...el, note } : others.has(el.id) && el.note !== undefined ? { ...el, note: undefined } : el;
   return { ...d, edges: d.edges.map(set), nodes: d.nodes.map(set) };
 }
+
+/**
+ * Instant affiché quand l'éditeur est à l'arrêt : en mode séquence, l'état final (tout est apparu et tracé) pour
+ * éditer le schéma complet ; en mode boucle, le début.
+ */
+export function staticTime(d: Diagram): number {
+  if (!d.settings.sequence) return 0;
+  const cycle = sequenceCycle(d);
+  const lastEnd = cycle - d.settings.sequenceGap;
+  return Math.max(0, Math.min(lastEnd + REVEAL_DURATION + 0.05, cycle - 0.01));
+}

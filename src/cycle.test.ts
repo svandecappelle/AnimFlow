@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { REVEAL_DURATION, revealTimes, sequenceCycle } from './animation';
+import { REVEAL_DURATION, revealTimes, sequenceCycle, staticTime } from './animation';
 import { createEdge, createNode, emptyDiagram } from './defaults';
 import type { Diagram } from './types';
 
@@ -32,5 +32,19 @@ describe('durée du cycle', () => {
     e.animation = { ...e.animation, type: 'flow', delay: 2, duration: 1.5 };
     const late = createNode('rectangle', 0, 0, 100, 50, { reveal: 'fade', revealDelay: 7 });
     expect(sequenceCycle(seq({ edges: [e], nodes: [late] }))).toBeCloseTo(7 + REVEAL_DURATION + 1);
+  });
+});
+
+describe('instant affiché à l’arrêt', () => {
+  it('séquence : après la dernière apparition, dans la pause de fin ; boucle : début', () => {
+    const late = createNode('rectangle', 0, 0, 100, 50, { reveal: 'fade', revealDelay: 3 });
+    const d = seq({ nodes: [late] });
+    const t = staticTime(d);
+    expect(t).toBeGreaterThanOrEqual(3 + REVEAL_DURATION);
+    expect(t).toBeLessThan(sequenceCycle(d));
+    expect(staticTime({ ...d, settings: { ...d.settings, sequence: false } })).toBe(0);
+    // sans pause de fin, reste dans le cycle
+    const noGap = { ...d, settings: { ...d.settings, sequenceGap: 0 } };
+    expect(staticTime(noGap)).toBeLessThan(sequenceCycle(noGap));
   });
 });
