@@ -63,6 +63,7 @@ interface State {
   peers: Peer[];
   /** Message d'information temporaire */
   toast: string | null;
+  rightTab: 'props' | 'order';
 
   setTool(tool: Tool): void;
   select(ids: string[]): void;
@@ -75,6 +76,7 @@ interface State {
   setCollab(patch: Partial<CollabInfo> | null): void;
   setPeers(peers: Peer[]): void;
   notify(message: string): void;
+  setRightTab(tab: 'props' | 'order'): void;
   /** Met à jour l'index des workspaces (persisté immédiatement). */
   setWorkspaces(patch: Partial<Pick<State, 'workspaces' | 'currentWorkspaceId' | 'currentDocId'>>): void;
   /** Bascule vers un autre document : sauvegarde le courant, conserve son historique d'annulation. */
@@ -111,6 +113,7 @@ export const useStore = create<State>((set, get) => ({
   collab: null,
   peers: [],
   toast: null,
+  rightTab: 'props',
   selectedIds: [],
   tool: 'select',
   viewport: { x: 0, y: 0, zoom: 1 },
@@ -135,6 +138,7 @@ export const useStore = create<State>((set, get) => ({
       ...(patch === null ? { peers: [] } : {}),
     })),
   setPeers: (peers) => set({ peers }),
+  setRightTab: (rightTab) => set({ rightTab }),
   notify: (toast) => {
     set({ toast });
     clearTimeout(toastTimer);

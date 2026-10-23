@@ -1,7 +1,7 @@
 import { autoSequence } from './animation';
 import { fitViewport, leftInset } from './camera';
 import { emptyDiagram, randomSeed, uid } from './defaults';
-import { diagramBounds } from './geometry';
+import { diagramBounds, reverseEdge, snapEdge } from './geometry';
 import { download, exportPngBlob, exportSvgString, FILE_EXTENSION, parseImportedText, pickFile, serializeDiagram } from './io/files';
 import { describeSkipped, excalidrawToElements, isExcalidrawData } from './io/excalidraw';
 import { mermaidToElements, type MermaidImportOptions } from './io/mermaid';
@@ -89,7 +89,7 @@ function pasteTarget() {
 
 /** Contenu copié depuis Excalidraw (ou fichier .excalidraw collé) : converti et centré sous la souris. */
 function pasteExcalidraw(data: { elements: unknown[] }) {
-  const { nodes, edges, skipped } = excalidrawToElements(data);
+  const { nodes, edges, skipped, snapped } = excalidrawToElements(data);
   const b = diagramBounds({ ...emptyDiagram(), nodes, edges });
   if (!b) {
     st().notify(describeSkipped(skipped) ?? 'Rien à coller depuis Excalidraw.');
@@ -99,7 +99,8 @@ function pasteExcalidraw(data: { elements: unknown[] }) {
   addElements(nodes, edges, { x: Math.round(t.x - (b.minX + b.maxX) / 2), y: Math.round(t.y - (b.minY + b.maxY) / 2) });
   const what = [nodes.length && plural(nodes.length, 'forme'), edges.length && plural(edges.length, 'lien')].filter(Boolean).join(' et ');
   const skippedText = describeSkipped(skipped);
-  st().notify(`Collé depuis Excalidraw : ${what}.${skippedText ? ` ${skippedText}.` : ''}`);
+  const snappedText = snapped ? ` ${plural(snapped, 'extrémité')} de flèche raccrochée${snapped > 1 ? 's' : ''} aux formes.` : '';
+  st().notify(`Collé depuis Excalidraw : ${what}.${snappedText}${skippedText ? ` ${skippedText}.` : ''}`);
 }
 
 /** Colle du texte : éléments AnimFlow ou Excalidraw copiés, diagramme JSON complet ou Mermaid. Renvoie false si non reconnu. */
@@ -261,4 +262,30 @@ export async function importFile(file: File, mode: ImportMode = 'new') {
 export async function openFile() {
   const file = await pickFile('.json,.excalidraw,.svg,.mmd,.mermaid,.txt,.md');
   if (file) await importFile(file);
+}
+
+/** Raccroche aux formes proches les extrémités libres des liens sélectionnés (ou de tous). */
+export function snapFreeEdges(onlySelected = true) {
+  const ids = new Set(st().selectedIds);
+  const d = st().diagram;
+  let count = 0;
+  const edges = d.edges.map((e) => {
+    if (onlySelected && !ids.has(e.id)) return e;
+    const s = snapEdge(e, d.nodes);
+    count += Number(s.source !== e.source) + Number(s.target !== e.target);
+    return s;
+  });
+  if (!count) {
+    st().notify('Aucune extrémité libre assez proche d’une forme (moins de 16 px).');
+    return;
+  }
+  st().commit((dd) => ({ ...dd, edges }));
+  st().notify(`${plural(count, 'extrémité')} raccrochée${count > 1 ? 's' : ''}.`);
+}
+
+/** Inverse le sens des liens sélectionnés (extrémités, pointes, sens du flux). */
+export function reverseSelectedEdges() {
+  const ids = new Set(st().selectedIds);
+  if (!st().diagram.edges.some((e) => ids.has(e.id))) return;
+  st().commit((d) => ({ ...d, edges: d.edges.map((e) => (ids.has(e.id) ? reverseEdge(e) : e)) }));
 }

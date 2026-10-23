@@ -28,6 +28,12 @@ doit être transmis ; `VITE_COLLAB_URL` permet aussi de pointer vers un relais h
 - **Mode séquence** : les flux jouent l'un après l'autre selon leur délai, puis le cycle recommence. Le bouton
   « Séquencer automatiquement » calcule les délais en suivant le graphe. En séquence, halo et pulsation se déclenchent
   à l'arrivée d'un flux. Timeline cliquable pour se positionner dans le temps.
+- **Ordre des étapes** (onglet du panneau de droite, touche L) : liste des étapes de la séquence ; glisser un élément sur
+  une étape pour qu'il démarre avec elle, ou entre deux étapes pour en créer une. Les formes en apparition « Auto »
+  suivent leurs flux. L'étape en cours est surlignée pendant la lecture. « ⚡ Auto » revient à l'ordre calculé d'après
+  les flèches.
+- **Liens** : « ⇄ Inverser le lien » (Maj+R) et « 🧲 Raccrocher » les extrémités libres aux formes proches (fait
+  automatiquement au collage depuis Excalidraw pour les flèches posées contre une forme sans y être liées).
 - **Pause entre les animations** : en séquence, temps d'attente entre deux étapes, réglable en direct — le schéma
   est re-minuté en gardant l'enchaînement (branches parallèles, jonctions, notes et apparitions suivent). Pause
   supplémentaire possible avant un flux précis. En boucle : temps de repos entre deux répétitions de chaque animation.

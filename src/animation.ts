@@ -181,7 +181,7 @@ export function autoSequence(d: Diagram, gap = d.settings.stepPause): Diagram {
 
   return {
     ...d,
-    settings: { ...d.settings, sequence: true },
+    settings: { ...d.settings, sequence: true, manualOrder: false },
     edges: d.edges.map((e) => {
       if (e.animation.type === 'none') return e;
       const delay = (e.source.nodeId ? (ready.get(e.source.nodeId) ?? 0) : 0) + e.animation.extraPause;
@@ -271,6 +271,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  * Les autres instants (apparitions imposées, séparateurs) suivent le flux qui les précède.
  */
 export function retime(d: Diagram): Diagram {
+  // Ordre manuel : on garde les étapes telles quelles, seul l'espacement change
+  if (d.settings.manualOrder) return applyStepOrder(d, sequenceSteps(d).map((s) => s.items.map((i) => i.id)));
   const pause = Math.max(0, d.settings.stepPause);
   const anim = d.edges.filter((e) => e.animation.type !== 'none').sort((a, b) => a.animation.delay - b.animation.delay);
   if (!anim.length) return d;
@@ -321,6 +323,100 @@ export function retime(d: Diagram): Diagram {
       const ns = newStart.get(e.id);
       if (ns !== undefined) return { ...e, animation: { ...e.animation, delay: ns } };
       return e.animation.delay ? { ...e, animation: { ...e.animation, delay: map(e.animation.delay) } } : e;
+    }),
+  };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Étapes de la séquence (panneau « Ordre des étapes »)
+
+export interface StepItem {
+  kind: 'edge' | 'node';
+  id: string;
+  start: number;
+  /** Durée de l'animation (ou de l'effet d'apparition) */
+  duration: number;
+}
+
+export interface SequenceStep {
+  start: number;
+  end: number;
+  /** Éléments qui démarrent ensemble (réordonnables) */
+  items: StepItem[];
+  /** Formes « Auto » qui apparaissent à l'arrivée d'un flux de cette étape (suivent automatiquement) */
+  arrivals: string[];
+}
+
+const SAME_STEP = 0.05;
+
+/**
+ * Découpe la séquence en étapes. Éléments ordonnables : liens animés, liens « apparition » non animés, formes à
+ * instant d'apparition imposé. Les formes « Auto » sont rattachées à l'étape dont un flux arrive sur elles.
+ */
+export function sequenceSteps(d: Diagram): SequenceStep[] {
+  const items: StepItem[] = [];
+  for (const e of d.edges) {
+    if (e.animation.type !== 'none') items.push({ kind: 'edge', id: e.id, start: e.animation.delay, duration: e.animation.duration });
+    else if (e.reveal) items.push({ kind: 'edge', id: e.id, start: e.animation.delay, duration: REVEAL_DURATION });
+  }
+  for (const n of d.nodes) {
+    if (n.reveal !== 'none' && n.revealDelay != null) items.push({ kind: 'node', id: n.id, start: n.revealDelay, duration: REVEAL_DURATION });
+  }
+  // Tri stable : à instant égal, l'ordre du schéma (liens puis formes)
+  items.sort((a, b) => a.start - b.start);
+  const steps: SequenceStep[] = [];
+  for (const it of items) {
+    const last = steps[steps.length - 1];
+    if (last && Math.abs(it.start - last.start) < SAME_STEP) {
+      last.items.push(it);
+      last.end = Math.max(last.end, it.start + it.duration);
+    } else steps.push({ start: it.start, end: it.start + it.duration, items: [it], arrivals: [] });
+  }
+
+  const reveal = revealTimes(d).nodes;
+  for (const n of d.nodes) {
+    if (n.reveal === 'none' || n.revealDelay != null) continue;
+    const t = reveal.get(n.id);
+    if (t === undefined || !steps.length) continue;
+    // Étape dont un flux entrant se termine à l'arrivée, sinon la dernière étape commencée avant
+    const byArrival = steps.find((s) =>
+      s.items.some((i) => i.kind === 'edge' && Math.abs(i.start + i.duration - t) < SAME_STEP && d.edges.find((e) => e.id === i.id)?.target.nodeId === n.id),
+    );
+    const fallback = [...steps].reverse().find((s) => s.start <= t + EPS) ?? steps[0];
+    (byArrival ?? fallback).arrivals.push(n.id);
+  }
+  return steps;
+}
+
+/**
+ * Applique un ordre d'étapes (identifiants par étape) : minutage linéaire, chaque étape démarre après la fin de
+ * la précédente + pause (+ la plus grande pause supplémentaire de ses liens). Passe le schéma en ordre manuel.
+ */
+export function applyStepOrder(d: Diagram, order: string[][]): Diagram {
+  const pause = Math.max(0, d.settings.stepPause);
+  const edges = new Map(d.edges.map((e) => [e.id, e]));
+  const nodes = new Map(d.nodes.map((n) => [n.id, n]));
+  const startOf = new Map<string, number>();
+  let prevEnd: number | null = null;
+  for (const ids of order.filter((s) => s.length)) {
+    const extra = Math.max(0, ...ids.map((id) => edges.get(id)?.animation.extraPause ?? 0));
+    const start: number = prevEnd === null ? extra : prevEnd + pause + extra;
+    let end: number = start;
+    for (const id of ids) {
+      startOf.set(id, round2(start));
+      const e = edges.get(id);
+      end = Math.max(end, start + (e && e.animation.type !== 'none' ? e.animation.duration : REVEAL_DURATION));
+    }
+    prevEnd = end;
+  }
+  return {
+    ...d,
+    settings: { ...d.settings, sequence: true, manualOrder: true },
+    edges: d.edges.map((e) => (startOf.has(e.id) ? { ...e, animation: { ...e.animation, delay: startOf.get(e.id)! } } : e)),
+    nodes: d.nodes.map((n) => {
+      const t = startOf.get(n.id);
+      if (t === undefined || !nodes.has(n.id)) return n;
+      return { ...n, revealDelay: t, reveal: n.reveal === 'none' ? 'fade' : n.reveal };
     }),
   };
 }

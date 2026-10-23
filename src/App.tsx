@@ -6,6 +6,7 @@ import {
   exportSvg,
   importFile,
   nudgeSelected,
+  reverseSelectedEdges,
   openFile,
   pasteText,
   saveJson,
@@ -14,7 +15,7 @@ import {
 } from './actions';
 import { Canvas } from './components/Canvas';
 import { MermaidDialog } from './components/MermaidDialog';
-import { PropertiesPanel } from './components/PropertiesPanel';
+import { RightPanel } from './components/RightPanel';
 import { ShareDialog } from './components/ShareDialog';
 import { Sidebar } from './components/Sidebar';
 import { roomFromHash } from './collab';
@@ -47,6 +48,8 @@ const SHORTCUTS: [string, string][] = [
   ['Flèches', 'Déplacer (Maj : ×10)'],
   ['B', 'Panneau des documents et workspaces'],
   ['P', 'Lecture / pause des animations'],
+  ['L', 'Panneau « Ordre des étapes »'],
+  ['Maj+R', 'Inverser le lien sélectionné'],
   ['C', 'Caméra qui suit l’animation (mode séquence)'],
   ['Ctrl+S / Ctrl+O / Ctrl+E', 'Enregistrer / ouvrir / exporter SVG animé'],
   ['Ctrl+Maj+E', 'Exporter en vidéo (MP4, WebM, GIF)'],
@@ -123,6 +126,8 @@ export default function App() {
       else if (e.key === '?') setHelp((h) => !h);
       else if (k === 'p') s.setPlaying(!s.playing);
       else if (k === 'b') s.setSidebarOpen(!s.sidebarOpen);
+      else if (k === 'r' && e.shiftKey) reverseSelectedEdges();
+      else if (k === 'l') s.setRightTab(s.rightTab === 'order' ? 'props' : 'order');
       else if (TOOL_KEYS[k]) s.setTool(TOOL_KEYS[k]);
       else if (k === 'enter' && s.selectedIds.length === 1) s.setEditing(s.selectedIds[0]);
       else return;
@@ -190,7 +195,7 @@ export default function App() {
         <Canvas />
         {sidebarOpen && <Sidebar />}
         <Toolbar />
-        <PropertiesPanel />
+        <RightPanel />
         {sequence && <Timeline />}
         {toast && <div className="toast panel" role="status">{toast}</div>}
         {dropping && <div className="drop-overlay">Déposez un fichier (schéma, workspace, .excalidraw, SVG AnimFlow ou Mermaid) : ouvert dans un nouveau document — Maj : ajouter au document courant</div>}

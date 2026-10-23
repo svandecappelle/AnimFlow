@@ -242,3 +242,46 @@ export function diagramBounds(d: Diagram): Bounds | null {
   }
   return b;
 }
+
+/** Distance (px) en deçà de laquelle une extrémité de flèche libre est raccrochée à une forme */
+export const SNAP_DISTANCE = 16;
+
+/**
+ * Forme à laquelle raccrocher une extrémité libre : la plus petite forme (hors texte) dont le contour est à moins
+ * de `tolerance` du point — la plus petite pour viser la boîte plutôt qu'un grand cadre qui la contient.
+ */
+export function findSnapNode(p: Point, nodes: NodeElement[], exclude?: string, tolerance = SNAP_DISTANCE): NodeElement | undefined {
+  let best: NodeElement | undefined;
+  for (const n of nodes) {
+    if (n.id === exclude || n.shape === 'text' || !nodeContains(n, p, tolerance)) continue;
+    if (!best || n.width * n.height < best.width * best.height) best = n;
+  }
+  return best;
+}
+
+/** Raccroche les extrémités libres d'un lien aux formes proches ; renvoie le lien (inchangé si rien à faire). */
+export function snapEdge(e: EdgeElement, nodes: NodeElement[]): EdgeElement {
+  let { source, target } = e;
+  const attach = (n: NodeElement) => ({ nodeId: n.id, x: n.x + n.width / 2, y: n.y + n.height / 2 });
+  if (!source.nodeId) {
+    const n = findSnapNode(source, nodes, target.nodeId);
+    if (n) source = attach(n);
+  }
+  if (!target.nodeId) {
+    const n = findSnapNode(target, nodes, source.nodeId);
+    if (n) target = attach(n);
+  }
+  return source === e.source && target === e.target ? e : { ...e, source, target };
+}
+
+/** Lien retourné : extrémités et pointes échangées, même tracé (courbure opposée). */
+export function reverseEdge(e: EdgeElement): EdgeElement {
+  const heads = { end: 'start', start: 'end', both: 'both', none: 'none' } as const;
+  return {
+    ...e,
+    source: e.target,
+    target: e.source,
+    arrowHeads: heads[e.arrowHeads],
+    curvature: e.curvature === undefined ? undefined : -e.curvature,
+  };
+}

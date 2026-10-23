@@ -97,6 +97,8 @@ export interface DiagramSettings {
   stepPause: number;
   /** Pause entre deux répétitions d'une même animation (s), mode boucle */
   loopPause: number;
+  /** Ordre fixé à la main (panneau « Ordre des étapes ») : minutage linéaire, étape après étape */
+  manualOrder: boolean;
   camera: CameraMode;
 }
 

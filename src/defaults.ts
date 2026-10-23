@@ -104,7 +104,7 @@ export function createEdge(source: EdgeEnd, target: EdgeEnd, patch: Partial<Edge
 }
 
 export function defaultSettings(): DiagramSettings {
-  return { background: '#ffffff', sequence: false, sequenceGap: 1, stepPause: 0.3, loopPause: 0, camera: 'off' };
+  return { background: '#ffffff', sequence: false, sequenceGap: 1, stepPause: 0.3, loopPause: 0, manualOrder: false, camera: 'off' };
 }
 
 export function emptyDiagram(): Diagram {

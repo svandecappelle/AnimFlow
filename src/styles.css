@@ -839,3 +839,153 @@ kbd {
     transform: translate(-50%, -6px);
   }
 }
+
+/* Onglets du panneau de droite */
+.props {
+  padding-top: 8px;
+}
+.tabs {
+  display: flex;
+  gap: 2px;
+  background: #f3f3f6;
+  padding: 2px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+.tabs button {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 6px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+}
+.tabs button.active {
+  background: white;
+  color: #3b37a8;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.button-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.btn.small-outline {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+/* Ordre des étapes */
+.order-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.hint {
+  margin: 6px 0 10px;
+}
+.step-list {
+  display: flex;
+  flex-direction: column;
+}
+.step {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.step.playing {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.step.over {
+  background: var(--hover);
+  border-color: var(--accent);
+  border-style: dashed;
+}
+.step-title {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0 4px 4px;
+}
+.step-title .muted {
+  font-weight: 400;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  cursor: grab;
+  font-size: 12px;
+}
+.step-item:hover {
+  background: #f3f3f6;
+}
+.step-item.selected {
+  background: var(--accent-soft);
+}
+.step-item.dragging {
+  opacity: 0.4;
+}
+.grip {
+  color: #adb5bd;
+  font-size: 10px;
+  letter-spacing: -2px;
+}
+.step-icon {
+  width: 18px;
+  text-align: center;
+  font-weight: 700;
+}
+.step-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.step-dur {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.step-arrival {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 2px 6px 2px 30px;
+  cursor: pointer;
+}
+.step-arrival:hover {
+  color: var(--text);
+}
+.step-gap {
+  height: 8px;
+  border-radius: 4px;
+  transition: height 0.1s;
+}
+.step-gap.over {
+  height: 26px;
+  border: 2px dashed var(--accent);
+  background: var(--hover);
+}
+.step-gap.last {
+  min-height: 12px;
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

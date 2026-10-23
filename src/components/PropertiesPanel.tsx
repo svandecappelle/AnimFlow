@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { applyAutoSequence, deleteSelected, duplicateSelected } from '../actions';
+import { applyAutoSequence, deleteSelected, duplicateSelected, reverseSelectedEdges, snapFreeEdges } from '../actions';
 import { retime, sequenceCycle } from '../animation';
 import { BACKGROUND_COLORS, FILL_COLORS, STROKE_COLORS } from '../defaults';
 import { useStore } from '../store';
@@ -129,7 +129,7 @@ export function PropertiesPanel() {
   if (!nodes.length && !edges.length) {
     const s = diagram.settings;
     return (
-      <aside className="props panel">
+      <div className="props-body">
         <Section title="Schéma">
           <Row label="Fond">
             <Colors colors={BACKGROUND_COLORS} value={s.background} onChange={(background) => commit((d) => ({ ...d, settings: { ...d.settings, background } }))} />
@@ -221,14 +221,14 @@ export function PropertiesPanel() {
           <br />
           Sélectionnez un élément pour modifier son style et son animation.
         </p>
-      </aside>
+      </div>
     );
   }
 
   const anim = edges[0]?.animation;
 
   return (
-    <aside className="props panel">
+    <div className="props-body">
       <Section title="Trait">
         <Colors
           colors={STROKE_COLORS}
@@ -387,6 +387,16 @@ export function PropertiesPanel() {
       {edges.length > 0 && anim && (
         <>
           <Section title="Lien">
+            <div className="button-row">
+              <button className="btn small-outline" title="Échange source et cible (et le sens du flux) — Maj+R" onClick={reverseSelectedEdges}>
+                ⇄ Inverser le lien
+              </button>
+              {edges.some((e) => !e.source.nodeId || !e.target.nodeId) && (
+                <button className="btn small-outline" title="Rattache les extrémités libres aux formes à moins de 16 px" onClick={() => snapFreeEdges()}>
+                  🧲 Raccrocher
+                </button>
+              )}
+            </div>
             <Row label="Tracé">
               <Segmented
                 value={first(edges, 'routing')}
@@ -465,7 +475,10 @@ export function PropertiesPanel() {
                                     animation: {
                                       ...e.animation,
                                       extraPause,
-                                      delay: Math.max(0, e.animation.delay + extraPause - e.animation.extraPause),
+                                      // En ordre manuel, la pause est appliquée à l'étape entière par le re-minutage
+                                      delay: d.settings.manualOrder
+                                        ? e.animation.delay
+                                        : Math.max(0, e.animation.delay + extraPause - e.animation.extraPause),
                                     },
                                   }
                                 : e,
@@ -534,6 +547,6 @@ export function PropertiesPanel() {
           {icons.trash}
         </button>
       </div>
-    </aside>
+    </div>
   );
 }

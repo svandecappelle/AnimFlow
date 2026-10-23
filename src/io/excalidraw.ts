@@ -10,6 +10,7 @@
  *  - freedraw, image, frame, embeddable… → ignorés (comptés dans `skipped`).
  */
 import { createEdge, createNode, defaultEdgeAnimation } from '../defaults';
+import { snapEdge } from '../geometry';
 import type { ArrowHeads, EdgeElement, FillStyle, FontFamily, NodeElement, StrokeStyle } from '../types';
 
 interface ExElement {
@@ -48,6 +49,8 @@ export interface ExcalidrawImport {
   edges: EdgeElement[];
   /** Éléments sans équivalent, par type */
   skipped: Record<string, number>;
+  /** Extrémités de flèches non liées dans Excalidraw, raccrochées à une forme proche */
+  snapped: number;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -81,6 +84,7 @@ export function excalidrawToElements(raw: { elements: unknown[] }): ExcalidrawIm
   const nodes: NodeElement[] = [];
   const edges: EdgeElement[] = [];
   const idMap = new Map<string, NodeElement>();
+  let snapped = 0;
 
   // Textes liés à un conteneur (forme ou flèche) → libellé du conteneur
   const boundText = new Map<string, ExElement>();
@@ -184,10 +188,15 @@ export function excalidrawToElements(raw: { elements: unknown[] }): ExcalidrawIm
       // Collage fidèle : pas d'animation, à choisir ensuite (sélection → « Animation du flux »)
       animation: { ...defaultEdgeAnimation(), type: 'none' },
     });
-    edges.push(edge);
+    // Flèche dessinée contre une forme sans y être liée dans Excalidraw : on la raccroche (les lignes restent libres)
+    if (el.type === 'arrow') {
+      const snappedEdge = snapEdge(edge, nodes);
+      snapped += Number(snappedEdge.source !== edge.source) + Number(snappedEdge.target !== edge.target);
+      edges.push(snappedEdge);
+    } else edges.push(edge);
   }
 
-  return { nodes, edges, skipped };
+  return { nodes, edges, skipped, snapped };
 }
 
 const SKIPPED_NAMES: Record<string, [singular: string, plural: string]> = {
