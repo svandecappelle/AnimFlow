@@ -20,6 +20,8 @@ export const CAMERA_TRANSITION = 0.7;
 /** Durée pendant laquelle un élément qui apparaît reste « actif » (s) */
 const APPEAR_FOCUS = 1;
 const PADDING = 60;
+/** Zoom maximal de la caméra (1 = taille réelle) : garde du contexte autour de l'élément suivi */
+export const CAMERA_MAX_ZOOM = 1.6;
 const EPS = 1e-3;
 
 export interface CameraKey {
@@ -48,8 +50,12 @@ function frame(b: Bounds, minW: number, minH: number, aspect: number, pad = PADD
 const same = (a: Bounds, b: Bounds) =>
   Math.abs(a.minX - b.minX) < 1 && Math.abs(a.minY - b.minY) < 1 && Math.abs(a.maxX - b.maxX) < 1 && Math.abs(a.maxY - b.maxY) < 1;
 
-/** Images clés de la caméra sur un cycle ; [] si la caméra est inactive. `aspect` = largeur / hauteur de la vue. */
-export function cameraKeyframes(d: Diagram, aspect: number): CameraKey[] {
+/**
+ * Images clés de la caméra sur un cycle ; [] si la caméra est inactive.
+ * `view` = taille de la vue en pixels écran (canevas visible, ou taille du SVG exporté).
+ */
+export function cameraKeyframes(d: Diagram, view: { width: number; height: number }): CameraKey[] {
+  const aspect = view.width / view.height;
   const mode = d.settings.camera;
   if (mode === 'off' || !d.settings.sequence) return [];
   const all = diagramBounds(d);
@@ -58,7 +64,8 @@ export function cameraKeyframes(d: Diagram, aspect: number): CameraKey[] {
   const fullW = all.maxX - all.minX;
   const fullH = all.maxY - all.minY;
   const frac = MIN_FRACTION[mode];
-  const focus = (b: Bounds) => frame(b, fullW * frac, fullH * frac, aspect);
+  const focus = (b: Bounds) =>
+    frame(b, Math.max(fullW * frac, view.width / CAMERA_MAX_ZOOM), Math.max(fullH * frac, view.height / CAMERA_MAX_ZOOM), aspect);
   const overview = frame(all, 0, 0, aspect, PADDING);
 
   const nodes = nodeMap(d.nodes);
@@ -104,8 +111,10 @@ export function cameraKeyframes(d: Diagram, aspect: number): CameraKey[] {
   }
   // Fin de cycle : vue d'ensemble, puis retour au premier cadrage pour boucler sans saut
   const last = states[states.length - 1].b;
-  const overviewStart = Math.min(lastEnd + CAMERA_TRANSITION, (lastEnd + cycle) / 2);
-  const overviewEnd = Math.max(overviewStart, cycle - CAMERA_TRANSITION);
+  // Pause courte : transitions raccourcies pour que la vue d'ensemble soit tenue au moins un tiers de la pause
+  const tr = Math.min(CAMERA_TRANSITION, (cycle - lastEnd) / 3);
+  const overviewStart = lastEnd + tr;
+  const overviewEnd = Math.max(overviewStart, cycle - tr);
   keys.push({ t: lastEnd, b: last }, { t: overviewStart, b: overview }, { t: overviewEnd, b: overview }, { t: cycle, b: states[0].b });
 
   // Temps strictement croissants dans [0, cycle]

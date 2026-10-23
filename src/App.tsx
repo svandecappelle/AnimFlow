@@ -39,6 +39,7 @@ const SHORTCUTS: [string, string][] = [
   ['Suppr', 'Supprimer'],
   ['Flèches', 'Déplacer (Maj : ×10)'],
   ['P', 'Lecture / pause des animations'],
+  ['C', 'Caméra qui suit l’animation (mode séquence)'],
   ['Ctrl+S / Ctrl+O / Ctrl+E', 'Enregistrer / ouvrir / exporter SVG animé'],
 ];
 
@@ -81,7 +82,15 @@ export default function App() {
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
         const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
         nudgeSelected(dx, dy);
-      } else if (e.key === '!' || (e.shiftKey && e.code === 'Digit1')) zoomToFit();
+      } else if (e.key === '!' || (e.shiftKey && e.code === 'Digit1')) {
+        s.setCameraSuspended(true);
+        zoomToFit();
+      } else if (k === 'c') {
+        // Caméra : active / reprend / désactive
+        const cam = s.diagram.settings.camera;
+        if (cam !== 'off' && s.cameraSuspended) s.setCameraSuspended(false);
+        else s.commit((d) => ({ ...d, settings: { ...d.settings, camera: cam === 'off' ? 'medium' : 'off', sequence: cam === 'off' || d.settings.sequence } }));
+      }
       else if (e.key === '?') setHelp((h) => !h);
       else if (k === 'p') s.setPlaying(!s.playing);
       else if (TOOL_KEYS[k]) s.setTool(TOOL_KEYS[k]);

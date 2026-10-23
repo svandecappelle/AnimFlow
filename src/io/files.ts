@@ -1,4 +1,5 @@
 import { FONTS_CSS_URL, normalizeDiagram } from '../defaults';
+import { cameraKeyframes, cameraSmil } from '../camera';
 import { diagramBounds } from '../geometry';
 import type { Diagram } from '../types';
 
@@ -52,10 +53,11 @@ export function exportSvgString(d: Diagram, canvas: SVGSVGElement, padding = 40)
   const style = document.createElementNS(SVG_NS, 'style');
   style.textContent = `@import url('${FONTS_CSS_URL}');`;
   const bg = document.createElementNS(SVG_NS, 'rect');
-  bg.setAttribute('x', String(x));
-  bg.setAttribute('y', String(y));
-  bg.setAttribute('width', String(w));
-  bg.setAttribute('height', String(h));
+  // Fond débordant : la caméra peut cadrer au-delà des bords du schéma
+  bg.setAttribute('x', String(x - w));
+  bg.setAttribute('y', String(y - h));
+  bg.setAttribute('width', String(w * 3));
+  bg.setAttribute('height', String(h * 3));
   bg.setAttribute('fill', d.settings.background);
 
   const clone = content.cloneNode(true) as SVGGElement;
@@ -65,6 +67,20 @@ export function exportSvgString(d: Diagram, canvas: SVGSVGElement, padding = 40)
     if (href) m.setAttributeNS(XLINK_NS, 'xlink:href', href);
   });
   svg.append(meta, style, bg, clone);
+
+  // Caméra de suivi : animation du viewBox (mêmes images clés que dans l'éditeur)
+  const cam = cameraSmil(cameraKeyframes(d, { width: w, height: h }));
+  if (cam) {
+    const anim = document.createElementNS(SVG_NS, 'animate');
+    anim.setAttribute('attributeName', 'viewBox');
+    anim.setAttribute('values', cam.values);
+    anim.setAttribute('keyTimes', cam.keyTimes);
+    anim.setAttribute('keySplines', cam.keySplines);
+    anim.setAttribute('calcMode', 'spline');
+    anim.setAttribute('dur', `${cam.dur}s`);
+    anim.setAttribute('repeatCount', 'indefinite');
+    svg.append(anim);
+  }
   return `<?xml version="1.0" encoding="UTF-8"?>\n${new XMLSerializer().serializeToString(svg)}`;
 }
 

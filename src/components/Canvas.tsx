@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { cameraAt, cameraKeyframes, fitViewport, visibleArea } from '../camera';
+import { CAMERA_MAX_ZOOM, cameraAt, cameraKeyframes, fitViewport, visibleArea } from '../camera';
 import { createEdge, createNode, DEFAULT_SIZES, FONT_STACKS } from '../defaults';
 import { center, distanceToPolyline, nodeContains, nodeMap, type EdgeGeometry } from '../geometry';
 import { computeGeometries, DiagramContent } from '../render/DiagramView';
@@ -66,13 +66,13 @@ export function Canvas() {
     if (!cameraOn || !svg) return;
     const rect = svg.getBoundingClientRect();
     const area = visibleArea(rect);
-    const keys = cameraKeyframes(diagram, area.width / area.height);
+    const keys = cameraKeyframes(diagram, area);
     if (!keys.length) return;
     let raf = 0;
     const tick = () => {
       const target = cameraAt(keys, svg.getCurrentTime());
       if (target) {
-        const goal = fitViewport(target, rect, 4);
+        const goal = fitViewport(target, rect, CAMERA_MAX_ZOOM);
         const cur = useStore.getState().viewport;
         // Lissage : rattrape la cible sans à-coup (y compris quand on réactive la caméra)
         const k = 0.18;

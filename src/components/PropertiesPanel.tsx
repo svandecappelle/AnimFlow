@@ -163,6 +163,27 @@ export function PropertiesPanel() {
           <button className="btn wide" onClick={applyAutoSequence} title="Calcule les délais en suivant le graphe depuis les sources">
             ⚡ Séquencer automatiquement
           </button>
+          <Row label="Caméra qui suit l’animation">
+            <Segmented
+              value={s.camera}
+              onChange={(camera) => {
+                commit((d) => ({ ...d, settings: { ...d.settings, camera, sequence: camera !== 'off' ? true : d.settings.sequence } }));
+                useStore.getState().setCameraSuspended(false);
+              }}
+              options={[
+                { value: 'off', label: 'Non' },
+                { value: 'close', label: 'Proche', title: 'Zoom serré sur l’élément animé' },
+                { value: 'medium', label: 'Moyen' },
+                { value: 'wide', label: 'Large', title: 'Garde plus de contexte autour' },
+              ]}
+            />
+          </Row>
+          {s.camera !== 'off' && (
+            <p className="muted">
+              Pendant la lecture, la vue suit les éléments animés puis montre l’ensemble en fin de cycle. Zoomer ou déplacer
+              la vue met la caméra en pause ; Lecture ou 🎥 la relance. Aussi appliqué au SVG exporté.
+            </p>
+          )}
           <Row label="Apparition des formes au fil du flux">
             <Segmented
               value={diagram.nodes.length && diagram.nodes.every((n) => n.reveal === diagram.nodes[0].reveal) ? diagram.nodes[0].reveal : undefined}

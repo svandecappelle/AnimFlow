@@ -26,6 +26,10 @@ npm run build      # build statique dans dist/
 - **Apparition progressive des formes** (fondu ou pop) : en mode séquence, une forme reste cachée jusqu'à l'arrivée
   du premier flux entrant, et les liens qui la touchent apparaissent au démarrage de leur flux. Réglable par forme ou
   pour tout le schéma, et à l'import Mermaid. En pause, les formes masquées sont affichées en contour pointillé.
+- **Caméra de suivi** (mode séquence, touche C ou bouton 🎥) : pendant la lecture, la vue cadre les éléments en cours
+  d'animation (proche / moyen / large, zoom plafonné à 160 %), puis montre l'ensemble en fin de cycle. Zoomer ou
+  déplacer la vue la met en pause ; Lecture, la timeline ou 🎥 la relancent. Le SVG exporté suit la même caméra
+  (animation du `viewBox`).
 - **Import / export**
   - `.animflow.json` : format natif (Ctrl+S / Ctrl+O, ou glisser-déposer un fichier).
   - **SVG animé** (Ctrl+E) : autonome, lisible dans n'importe quel navigateur, intégrable dans une page ou un wiki ;
@@ -49,6 +53,7 @@ npm run build      # build statique dans dist/
 | `src/store.ts` | État global (zustand), historique, sauvegarde auto |
 | `src/geometry.ts` | Tracés des liens (droit, courbe, coudé), points de contour, hit-testing |
 | `src/animation.ts` | Timings des animations (boucle / séquence), séquençage automatique |
+| `src/camera.ts` | Caméra de suivi : images clés, interpolation, export SMIL du viewBox |
 | `src/render/DiagramView.tsx` | Rendu SVG : formes rough.js + animations **SMIL** |
 | `src/components/Canvas.tsx` | Interactions de l'éditeur |
 | `src/io/files.ts` | Export SVG/PNG/JSON, reconnaissance des fichiers importés |

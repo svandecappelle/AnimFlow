@@ -37,6 +37,7 @@ export function Timeline() {
           const frac = (e.clientX - r.left) / r.width;
           const now = svg.getCurrentTime();
           svg.setCurrentTime(now - (now % cycle) + frac * cycle);
+          useStore.getState().setCameraSuspended(false);
         }}
       >
         {markers.map((e) => (

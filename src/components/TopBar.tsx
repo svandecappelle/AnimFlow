@@ -41,7 +41,9 @@ export function TopBar({ onMermaid, onHelp }: { onMermaid: (mode: 'import' | 'ex
   const canRedo = useStore((s) => s.future.length > 0);
   const zoom = useStore((s) => s.viewport.zoom);
   const sequence = useStore((s) => s.diagram.settings.sequence);
-  const { undo, redo, setPlaying, restart, commit } = useStore.getState();
+  const camera = useStore((s) => s.diagram.settings.camera);
+  const cameraSuspended = useStore((s) => s.cameraSuspended);
+  const { undo, redo, setPlaying, restart, commit, setCameraSuspended } = useStore.getState();
 
   return (
     <header className="topbar">
@@ -96,8 +98,35 @@ export function TopBar({ onMermaid, onHelp }: { onMermaid: (mode: 'import' | 'ex
         />
         Séquence
       </label>
+      <button
+        className={`btn ${camera !== 'off' && !cameraSuspended ? 'active' : ''}`}
+        title={
+          camera === 'off'
+            ? 'Caméra : suivre les éléments animés (mode séquence) — C'
+            : cameraSuspended
+              ? 'Caméra en pause (vue déplacée à la main) : cliquer pour reprendre le suivi'
+              : 'Caméra active : cliquer pour la désactiver'
+        }
+        onClick={() => {
+          if (camera !== 'off' && cameraSuspended) setCameraSuspended(false);
+          else
+            commit((d) => ({
+              ...d,
+              settings: { ...d.settings, camera: camera === 'off' ? 'medium' : 'off', sequence: camera === 'off' ? true : d.settings.sequence },
+            }));
+        }}
+      >
+        🎥 {camera === 'off' ? 'Caméra' : cameraSuspended ? 'Reprendre' : 'Suivi'}
+      </button>
       <div className="sep" />
-      <button className="btn" title="Ajuster à l'écran — Maj+1" onClick={zoomToFit}>
+      <button
+        className="btn"
+        title="Ajuster à l'écran — Maj+1"
+        onClick={() => {
+          setCameraSuspended(true);
+          zoomToFit();
+        }}
+      >
         {Math.round(zoom * 100)} %
       </button>
       <button className="icon-btn" title="Aide & raccourcis — ?" onClick={onHelp}>

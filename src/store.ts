@@ -89,7 +89,7 @@ export const useStore = create<State>((set, get) => ({
   },
   load: (d) => {
     get().pushHistory();
-    set({ diagram: d, selectedIds: [], editingId: null });
+    set({ diagram: d, selectedIds: [], editingId: null, cameraSuspended: false });
   },
   undo: () =>
     set((s) => {
