@@ -58,6 +58,10 @@ doit être transmis ; `VITE_COLLAB_URL` permet aussi de pointer vers un relais h
   - PNG (image fixe).
   - **Mermaid** : import d'un `flowchart`/`graph` avec mise en page automatique (dagre), export vers Mermaid
     (liens animés exportés en `e1@{ animate: true }`, Mermaid ≥ 11.10). Coller du Mermaid dans le canevas l'importe aussi.
+  - **Excalidraw** : copier (Ctrl+C) des éléments sur excalidraw.com puis coller (Ctrl+V) dans AnimFlow les insère sous
+    la souris — formes et leurs textes, flèches rattachées (pointes, libellés, courbes, coudes), textes, couleurs et
+    styles. Les fichiers `.excalidraw` s'ouvrent aussi (Ouvrir, glisser-déposer). Dessin à main levée, images et
+    cadres sont ignorés (un message l'indique).
   - **Diagrammes de séquence Mermaid** (`sequenceDiagram`), deux rendus au choix à l'import :
     - *Séquence animée* : participants, lignes de vie, messages qui se dessinent un par un, notes, blocs
       `loop/alt/opt/par/critical/break` (avec `else`), barres d'activation, `autonumber` — tout apparaît dans l'ordre ;
@@ -82,6 +86,7 @@ doit être transmis ; `VITE_COLLAB_URL` permet aussi de pointer vers un relais h
 | `src/collab.ts` / `src/collabEngine.ts` | Collaboration : salles, présence, réplication Yjs du schéma (moteur chargé à la demande) |
 | `server/collab.mjs` / `server/serve.mjs` | Relais WebSocket (protocole y-websocket) et serveur de production |
 | `src/io/video.ts` | Export vidéo : figement image par image des animations SMIL, encodage WebCodecs (mediabunny) / GIF (gifenc) |
+| `src/io/excalidraw.ts` | Conversion du presse-papiers / des fichiers Excalidraw |
 | `src/io/mermaid.ts` | Parseur Mermaid flowchart, mise en page dagre, export Mermaid |
 | `src/io/mermaidSequence.ts` | Parseur `sequenceDiagram`, rendus « séquence animée » et « schéma en boîtes » |
 

@@ -40,7 +40,7 @@ const SHORTCUTS: [string, string][] = [
   ['Maj + 1', 'Ajuster à l’écran'],
   ['Alt + glisser', 'Aimanter sur la grille'],
   ['Maj + clic', 'Sélection multiple'],
-  ['Ctrl+C / Ctrl+V', 'Copier / coller (colle aussi du Mermaid ou du JSON)'],
+  ['Ctrl+C / Ctrl+V', 'Copier / coller (colle aussi depuis Excalidraw, du Mermaid ou du JSON)'],
   ['Ctrl+D', 'Dupliquer'],
   ['Ctrl+Z / Ctrl+Maj+Z', 'Annuler / rétablir'],
   ['Suppr', 'Supprimer'],
@@ -60,6 +60,7 @@ export default function App() {
   const [dropping, setDropping] = useState(false);
   const sequence = useStore((s) => s.diagram.settings.sequence);
   const sidebarOpen = useStore((s) => s.sidebarOpen);
+  const toast = useStore((s) => s.toast);
 
   useEffect(() => {
     requestAnimationFrame(() => zoomToFit());
@@ -191,7 +192,8 @@ export default function App() {
         <Toolbar />
         <PropertiesPanel />
         {sequence && <Timeline />}
-        {dropping && <div className="drop-overlay">Déposez un fichier (schéma, workspace, SVG AnimFlow ou Mermaid) : ouvert dans un nouveau document — Maj : ajouter au document courant</div>}
+        {toast && <div className="toast panel" role="status">{toast}</div>}
+        {dropping && <div className="drop-overlay">Déposez un fichier (schéma, workspace, .excalidraw, SVG AnimFlow ou Mermaid) : ouvert dans un nouveau document — Maj : ajouter au document courant</div>}
       </main>
       {mermaid && <MermaidDialog mode={mermaid} onClose={() => setMermaid(null)} />}
       {share && <ShareDialog onClose={() => setShare(false)} />}

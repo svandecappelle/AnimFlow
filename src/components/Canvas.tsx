@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { CAMERA_MAX_ZOOM, cameraAt, cameraKeyframes, fitViewport, leftInset, visibleArea } from '../camera';
+import { setPastePoint } from '../actions';
 import { updateCursor } from '../collab';
 import { createEdge, createNode, DEFAULT_SIZES, FONT_STACKS } from '../defaults';
 import { center, distanceToPolyline, nodeContains, nodeMap, type EdgeGeometry } from '../geometry';
@@ -262,6 +263,7 @@ export function Canvas() {
   const onPointerMove = (e: RPointerEvent<SVGSVGElement>) => {
     const p = toWorld(e.clientX, e.clientY);
     updateCursor(p);
+    setPastePoint(p);
     if (!drag) return;
     switch (drag.kind) {
       case 'pan':
@@ -422,7 +424,10 @@ export function Canvas() {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={() => setDrag(null)}
-        onPointerLeave={() => updateCursor(null)}
+        onPointerLeave={() => {
+          updateCursor(null);
+          setPastePoint(null);
+        }}
         onDoubleClick={onDoubleClick}
         onContextMenu={(e) => e.preventDefault()}
       >

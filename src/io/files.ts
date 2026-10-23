@@ -2,7 +2,9 @@ import { FONTS_CSS_URL, normalizeDiagram } from '../defaults';
 import { cameraKeyframes, cameraSmil } from '../camera';
 import { diagramBounds } from '../geometry';
 import type { Diagram } from '../types';
+import { emptyDiagram } from '../defaults';
 import { isWorkspaceFile, type WorkspaceFile } from '../workspace';
+import { describeSkipped, excalidrawToElements, isExcalidrawData } from './excalidraw';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const XLINK_NS = 'http://www.w3.org/1999/xlink';
@@ -122,7 +124,7 @@ export async function exportPngBlob(svgString: string, scale = 2): Promise<Blob>
 }
 
 export type ParsedFile =
-  | { kind: 'diagram'; diagram: Diagram }
+  | { kind: 'diagram'; diagram: Diagram; notice?: string | null }
   | { kind: 'workspace'; file: WorkspaceFile }
   | { kind: 'mermaid'; source: string };
 
@@ -131,6 +133,16 @@ export function parseImportedText(text: string): ParsedFile {
   const trimmed = text.trim();
   if (trimmed.startsWith('{')) {
     const raw = JSON.parse(trimmed);
+    if (isExcalidrawData(raw)) {
+      const { nodes, edges, skipped } = excalidrawToElements(raw);
+      const background = raw.appState?.viewBackgroundColor;
+      const base = emptyDiagram();
+      return {
+        kind: 'diagram',
+        diagram: { ...base, nodes, edges, settings: { ...base.settings, ...(background ? { background } : {}) } },
+        notice: describeSkipped(skipped),
+      };
+    }
     if (isWorkspaceFile(raw)) {
       const documents = (Array.isArray(raw.documents) ? raw.documents : []).map((doc) => ({
         name: String(doc?.name ?? 'Sans titre'),
@@ -146,7 +158,7 @@ export function parseImportedText(text: string): ParsedFile {
     return { kind: 'diagram', diagram: normalizeDiagram(JSON.parse(fromBase64(m[1]))) };
   }
   if (/^(graph|flowchart|sequenceDiagram)\b/i.test(trimmed.replace(/^(%%.*\n|\s)*/, ''))) return { kind: 'mermaid', source: trimmed };
-  throw new Error('Format non reconnu (attendu : .animflow.json, workspace, .svg AnimFlow ou Mermaid flowchart / sequenceDiagram).');
+  throw new Error('Format non reconnu (attendu : .animflow.json, workspace, .excalidraw, .svg AnimFlow ou Mermaid flowchart / sequenceDiagram).');
 }
 
 export function pickFile(accept: string): Promise<File | null> {

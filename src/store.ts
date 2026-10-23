@@ -61,6 +61,8 @@ interface State {
   storageFull: boolean;
   collab: CollabInfo | null;
   peers: Peer[];
+  /** Message d'information temporaire */
+  toast: string | null;
 
   setTool(tool: Tool): void;
   select(ids: string[]): void;
@@ -72,6 +74,7 @@ interface State {
   setSidebarOpen(open: boolean): void;
   setCollab(patch: Partial<CollabInfo> | null): void;
   setPeers(peers: Peer[]): void;
+  notify(message: string): void;
   /** Met à jour l'index des workspaces (persisté immédiatement). */
   setWorkspaces(patch: Partial<Pick<State, 'workspaces' | 'currentWorkspaceId' | 'currentDocId'>>): void;
   /** Bascule vers un autre document : sauvegarde le courant, conserve son historique d'annulation. */
@@ -94,6 +97,7 @@ const existing = (d: Diagram, ids: string[]) => {
 };
 
 const initial = loadIndex(createExampleDiagram);
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
 /** Historiques d'annulation des documents non ouverts (en mémoire, le temps de la session) */
 const histories = new Map<string, { past: Diagram[]; future: Diagram[] }>();
 
@@ -106,6 +110,7 @@ export const useStore = create<State>((set, get) => ({
   storageFull: false,
   collab: null,
   peers: [],
+  toast: null,
   selectedIds: [],
   tool: 'select',
   viewport: { x: 0, y: 0, zoom: 1 },
@@ -130,6 +135,11 @@ export const useStore = create<State>((set, get) => ({
       ...(patch === null ? { peers: [] } : {}),
     })),
   setPeers: (peers) => set({ peers }),
+  notify: (toast) => {
+    set({ toast });
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => set({ toast: null }), 5000);
+  },
   setWorkspaces: (patch) => {
     set(patch);
     const s = get();

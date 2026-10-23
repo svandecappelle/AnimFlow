@@ -3,9 +3,11 @@ import { fitViewport, leftInset } from './camera';
 import { emptyDiagram, randomSeed, uid } from './defaults';
 import { diagramBounds } from './geometry';
 import { download, exportPngBlob, exportSvgString, FILE_EXTENSION, parseImportedText, pickFile, serializeDiagram } from './io/files';
+import { describeSkipped, excalidrawToElements, isExcalidrawData } from './io/excalidraw';
 import { mermaidToElements, type MermaidImportOptions } from './io/mermaid';
 import { isSequenceDiagram, sequenceToElements, type SequenceImportOptions } from './io/mermaidSequence';
 import { flushSave, getCanvasSvg, useStore } from './store';
+import { plural } from './text';
 import { fileSlug } from './workspace';
 import { createDocument, currentDocName, importWorkspace } from './workspaceActions';
 import type { Diagram, EdgeElement, NodeElement } from './types';
@@ -70,12 +72,46 @@ export function clipboardPayload(): string | null {
   return JSON.stringify({ type: CLIPBOARD_TYPE, nodes, edges });
 }
 
-/** Colle du texte : éléments AnimFlow copiés, diagramme JSON complet ou Mermaid. Renvoie false si non reconnu. */
+/** Dernière position du pointeur sur le canevas (coordonnées du schéma), pour coller « sous la souris ». */
+let pointer: { x: number; y: number } | null = null;
+export const setPastePoint = (p: { x: number; y: number } | null) => {
+  pointer = p;
+};
+
+/** Point où coller : sous la souris, sinon au centre de la zone visible. */
+function pasteTarget() {
+  if (pointer) return pointer;
+  const svg = getCanvasSvg();
+  const vp = st().viewport;
+  const r = svg?.getBoundingClientRect() ?? { width: 800, height: 600 };
+  return { x: (r.width / 2 - vp.x) / vp.zoom, y: (r.height / 2 - vp.y) / vp.zoom };
+}
+
+/** Contenu copié depuis Excalidraw (ou fichier .excalidraw collé) : converti et centré sous la souris. */
+function pasteExcalidraw(data: { elements: unknown[] }) {
+  const { nodes, edges, skipped } = excalidrawToElements(data);
+  const b = diagramBounds({ ...emptyDiagram(), nodes, edges });
+  if (!b) {
+    st().notify(describeSkipped(skipped) ?? 'Rien à coller depuis Excalidraw.');
+    return;
+  }
+  const t = pasteTarget();
+  addElements(nodes, edges, { x: Math.round(t.x - (b.minX + b.maxX) / 2), y: Math.round(t.y - (b.minY + b.maxY) / 2) });
+  const what = [nodes.length && plural(nodes.length, 'forme'), edges.length && plural(edges.length, 'lien')].filter(Boolean).join(' et ');
+  const skippedText = describeSkipped(skipped);
+  st().notify(`Collé depuis Excalidraw : ${what}.${skippedText ? ` ${skippedText}.` : ''}`);
+}
+
+/** Colle du texte : éléments AnimFlow ou Excalidraw copiés, diagramme JSON complet ou Mermaid. Renvoie false si non reconnu. */
 export function pasteText(text: string): boolean {
   try {
     const data = JSON.parse(text);
     if (data?.type === CLIPBOARD_TYPE) {
       addElements(data.nodes, data.edges, { x: 24, y: 24 });
+      return true;
+    }
+    if (isExcalidrawData(data)) {
+      pasteExcalidraw(data);
       return true;
     }
   } catch {
@@ -207,13 +243,14 @@ export async function importFile(file: File, mode: ImportMode = 'new') {
   try {
     flushSave();
     const parsed = parseImportedText(await file.text());
-    const name = file.name.replace(/(\.animflow)?\.(json|svg|mmd|mermaid|txt|md)$/i, '').replace(/\.animflow-workspace$/i, '') || 'Import';
+    const name = file.name.replace(/(\.animflow)?\.(json|excalidraw|svg|mmd|mermaid|txt|md)$/i, '').replace(/\.animflow-workspace$/i, '') || 'Import';
     if (parsed.kind === 'workspace') importWorkspace(parsed.file);
     else if (parsed.kind === 'mermaid') importMermaid(parsed.source, mode, {}, name);
     else if (mode === 'add') addElements(parsed.diagram.nodes, parsed.diagram.edges);
     else {
       if (mode === 'new') createDocument(name, parsed.diagram);
       else st().load(parsed.diagram);
+      if (parsed.notice) st().notify(parsed.notice);
       requestAnimationFrame(() => zoomToFit());
     }
   } catch (err) {
@@ -222,6 +259,6 @@ export async function importFile(file: File, mode: ImportMode = 'new') {
 }
 
 export async function openFile() {
-  const file = await pickFile('.json,.svg,.mmd,.mermaid,.txt,.md');
+  const file = await pickFile('.json,.excalidraw,.svg,.mmd,.mermaid,.txt,.md');
   if (file) await importFile(file);
 }
