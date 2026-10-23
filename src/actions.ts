@@ -149,6 +149,7 @@ export function importSequence(source: string, mode: 'replace' | 'add', opts: Pa
     roughness: 1,
     reveal: render === 'sequence',
     origin: mode === 'replace' ? { x: 80, y: 80 } : insertionOrigin(),
+    pause: st().diagram.settings.stepPause,
     ...opts,
   });
   insertImported(nodes, edges, mode, settings);

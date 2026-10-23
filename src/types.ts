@@ -59,6 +59,8 @@ export interface EdgeAnimation {
   particleSize: number;
   /** Couleur de l'animation ; null = couleur du trait */
   color: string | null;
+  /** Pause supplémentaire avant ce flux (s), en plus de la pause entre animations (mode séquence) */
+  extraPause: number;
 }
 
 export interface EdgeElement {
@@ -91,6 +93,10 @@ export interface DiagramSettings {
   sequence: boolean;
   /** Pause en fin de cycle (secondes) en mode séquence */
   sequenceGap: number;
+  /** Pause entre deux animations successives (s), mode séquence */
+  stepPause: number;
+  /** Pause entre deux répétitions d'une même animation (s), mode boucle */
+  loopPause: number;
   camera: CameraMode;
 }
 

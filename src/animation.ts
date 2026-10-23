@@ -39,12 +39,11 @@ export function edgeWindow(e: EdgeElement, settings: DiagramSettings, cycle: num
     const start = Math.min(1, a.delay / cycle);
     return { dur: cycle, start, end: Math.min(1, Math.max(start + EPS * 10, (a.delay + a.duration) / cycle)), begin: 0 };
   }
-  if (a.type === 'draw') {
-    // On garde le tracé affiché un moment avant de recommencer
-    const hold = 1.5;
-    return { dur: a.duration * hold, start: 0, end: 1 / hold, begin: a.delay };
-  }
-  return { dur: a.duration, start: 0, end: 1, begin: a.delay };
+  // Mode boucle : l'animation dure `duration`, puis repos de `loopPause` avant la répétition suivante
+  // (le tracé progressif reste en plus affiché un moment avant de recommencer)
+  const active = a.duration;
+  const rest = (a.type === 'draw' ? a.duration * 0.5 : 0) + Math.max(0, settings.loopPause);
+  return { dur: active + rest, start: 0, end: active / (active + rest), begin: a.delay };
 }
 
 export interface Keys {
@@ -138,7 +137,7 @@ export function arrivalWindows(d: Diagram, nodeId: string, cycle: number, hold =
  * Calcule automatiquement les délais pour que chaque lien démarre quand le flux arrive à son nœud source
  * (plus long chemin depuis les sources, en ignorant les arcs retour des cycles). Active le mode séquence.
  */
-export function autoSequence(d: Diagram, gap = 0.15): Diagram {
+export function autoSequence(d: Diagram, gap = d.settings.stepPause): Diagram {
   const animated = d.edges.filter((e) => e.animation.type !== 'none');
   const out = new Map<string, EdgeElement[]>();
   const incoming = new Set<string>();
@@ -170,7 +169,7 @@ export function autoSequence(d: Diagram, gap = 0.15): Diagram {
     let changed = false;
     for (const e of animated) {
       if (back.has(e.id) || !e.target.nodeId) continue;
-      const start = e.source.nodeId ? (ready.get(e.source.nodeId) ?? 0) : 0;
+      const start = (e.source.nodeId ? (ready.get(e.source.nodeId) ?? 0) : 0) + e.animation.extraPause;
       const arrival = start + e.animation.duration + gap;
       if (arrival > (ready.get(e.target.nodeId) ?? 0) + EPS) {
         ready.set(e.target.nodeId, arrival);
@@ -185,7 +184,7 @@ export function autoSequence(d: Diagram, gap = 0.15): Diagram {
     settings: { ...d.settings, sequence: true },
     edges: d.edges.map((e) => {
       if (e.animation.type === 'none') return e;
-      const delay = e.source.nodeId ? (ready.get(e.source.nodeId) ?? 0) : 0;
+      const delay = (e.source.nodeId ? (ready.get(e.source.nodeId) ?? 0) : 0) + e.animation.extraPause;
       return { ...e, animation: { ...e.animation, delay: Math.round(delay * 100) / 100 } };
     }),
   };
@@ -258,4 +257,70 @@ export function revealTimes(d: Diagram): RevealTimes {
     if (t > EPS) edges.set(e.id, t);
   }
   return { nodes, edges };
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Re-minute un schéma en mode séquence avec la pause `settings.stepPause`, en conservant l'enchaînement existant :
+ *  - un flux partant d'une forme redémarre `stepPause + extraPause` après la nouvelle fin du dernier flux arrivé
+ *    sur cette forme — les jonctions (attendre le plus long de plusieurs flux) sont conservées ;
+ *  - un flux libre (sans forme de départ) suit le dernier flux terminé avant lui, ou garde son décalage par rapport
+ *    au flux pendant lequel il démarrait (messages simultanés) ;
+ *  - les flux de départ gardent leur délai.
+ * Les autres instants (apparitions imposées, séparateurs) suivent le flux qui les précède.
+ */
+export function retime(d: Diagram): Diagram {
+  const pause = Math.max(0, d.settings.stepPause);
+  const anim = d.edges.filter((e) => e.animation.type !== 'none').sort((a, b) => a.animation.delay - b.animation.delay);
+  if (!anim.length) return d;
+  const oldEnd = (e: EdgeElement) => e.animation.delay + e.animation.duration;
+  const newStart = new Map<string, number>();
+  const done: EdgeElement[] = [];
+  for (const e of anim) {
+    const s = e.animation.delay;
+    // Lien partant d'une forme : déclenché par le dernier flux arrivé sur cette forme (structure du graphe).
+    // Lien libre (ex. message de diagramme de séquence) : par le dernier flux terminé avant lui.
+    const src = e.source.nodeId;
+    const candidates = src ? done.filter((p) => p.target.nodeId === src) : done;
+    let trigger: EdgeElement | undefined;
+    let anchor: EdgeElement | undefined;
+    // Parmi les flux terminés avant lui, celui qui finit le plus tard après re-minutage
+    const newEnd = (p: EdgeElement) => newStart.get(p.id)! + p.animation.duration;
+    for (const p of candidates) {
+      if (oldEnd(p) <= s + EPS && (!trigger || newEnd(p) > newEnd(trigger))) trigger = p;
+    }
+    if (!src) {
+      for (const p of done) if (p.animation.delay <= s + EPS && (!anchor || p.animation.delay >= anchor.animation.delay)) anchor = p;
+    }
+    let t: number;
+    if (trigger) t = newStart.get(trigger.id)! + trigger.animation.duration + pause + e.animation.extraPause;
+    else if (anchor) t = newStart.get(anchor.id)! + (s - anchor.animation.delay);
+    else t = s;
+    newStart.set(e.id, round2(t));
+    done.push(e);
+  }
+
+  // Correspondance ancien instant → nouvel instant, par décalage depuis le repère précédent
+  const marks = anim
+    .flatMap((e) => [
+      [e.animation.delay, newStart.get(e.id)!],
+      [oldEnd(e), newStart.get(e.id)! + e.animation.duration],
+    ])
+    .sort((a, b) => a[0] - b[0]);
+  const map = (t: number) => {
+    let m = marks[0];
+    for (const k of marks) if (k[0] <= t + EPS) m = k;
+    return round2(Math.max(0, t <= marks[0][0] ? t : m[1] + (t - m[0])));
+  };
+
+  return {
+    ...d,
+    nodes: d.nodes.map((n) => (n.revealDelay != null ? { ...n, revealDelay: map(n.revealDelay) } : n)),
+    edges: d.edges.map((e) => {
+      const ns = newStart.get(e.id);
+      if (ns !== undefined) return { ...e, animation: { ...e.animation, delay: ns } };
+      return e.animation.delay ? { ...e, animation: { ...e.animation, delay: map(e.animation.delay) } } : e;
+    }),
+  };
 }

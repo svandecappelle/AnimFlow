@@ -23,6 +23,9 @@ npm run build      # build statique dans dist/
 - **Mode séquence** : les flux jouent l'un après l'autre selon leur délai, puis le cycle recommence. Le bouton
   « Séquencer automatiquement » calcule les délais en suivant le graphe. En séquence, halo et pulsation se déclenchent
   à l'arrivée d'un flux. Timeline cliquable pour se positionner dans le temps.
+- **Pause entre les animations** : en séquence, temps d'attente entre deux étapes, réglable en direct — le schéma
+  est re-minuté en gardant l'enchaînement (branches parallèles, jonctions, notes et apparitions suivent). Pause
+  supplémentaire possible avant un flux précis. En boucle : temps de repos entre deux répétitions de chaque animation.
 - **Apparition progressive des formes** (fondu ou pop) : en mode séquence, une forme reste cachée jusqu'à l'arrivée
   du premier flux entrant, et les liens qui la touchent apparaissent au démarrage de leur flux. Réglable par forme ou
   pour tout le schéma, et à l'import Mermaid. En pause, les formes masquées sont affichées en contour pointillé.

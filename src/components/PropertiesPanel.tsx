@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { applyAutoSequence, deleteSelected, duplicateSelected } from '../actions';
-import { sequenceCycle } from '../animation';
+import { retime, sequenceCycle } from '../animation';
 import { BACKGROUND_COLORS, FILL_COLORS, STROKE_COLORS } from '../defaults';
 import { useStore } from '../store';
 import type { EdgeAnimation, EdgeElement, NodeElement, NodeReveal } from '../types';
@@ -145,6 +145,29 @@ export function PropertiesPanel() {
               ]}
             />
           </Row>
+          {s.sequence ? (
+            <Row label="Pause entre les animations">
+              <Slider
+                min={0}
+                max={5}
+                step={0.1}
+                value={s.stepPause}
+                unit=" s"
+                onChange={(stepPause) => apply((d) => retime({ ...d, settings: { ...d.settings, stepPause } }))}
+              />
+            </Row>
+          ) : (
+            <Row label="Pause entre les répétitions">
+              <Slider
+                min={0}
+                max={5}
+                step={0.1}
+                value={s.loopPause}
+                unit=" s"
+                onChange={(loopPause) => apply((d) => ({ ...d, settings: { ...d.settings, loopPause } }))}
+              />
+            </Row>
+          )}
           {s.sequence && (
             <>
               <Row label="Pause en fin de cycle">
@@ -421,6 +444,37 @@ export function PropertiesPanel() {
                 <Row label={diagram.settings.sequence ? 'Démarre à' : 'Délai'}>
                   <Slider min={0} max={20} step={0.1} value={anim.delay} unit=" s" onChange={(delay) => patchAnim({ delay }, true)} />
                 </Row>
+                {diagram.settings.sequence && (
+                  <Row label="Pause supplémentaire avant ce flux">
+                    <Slider
+                      min={0}
+                      max={10}
+                      step={0.1}
+                      value={anim.extraPause}
+                      unit=" s"
+                      onChange={(extraPause) =>
+                        // Les flux suivants sont décalés d'autant
+                        apply((d) =>
+                          retime({
+                            ...d,
+                            edges: d.edges.map((e) =>
+                              ids.has(e.id)
+                                ? {
+                                    ...e,
+                                    animation: {
+                                      ...e.animation,
+                                      extraPause,
+                                      delay: Math.max(0, e.animation.delay + extraPause - e.animation.extraPause),
+                                    },
+                                  }
+                                : e,
+                            ),
+                          }),
+                        )
+                      }
+                    />
+                  </Row>
+                )}
                 <Row label="Sens">
                   <Segmented
                     value={anim.reverse}

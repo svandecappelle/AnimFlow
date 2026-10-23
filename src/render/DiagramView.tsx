@@ -344,7 +344,8 @@ function EdgeAnimationView({
       const gapL = dashL * 1.3;
       const period = dashL + gapL;
       const travel = Math.max(1, Math.round(len / period)) * period;
-      const vis = sequence ? discreteVisibility([[w.start, w.end]]) : 1;
+      // Visible seulement pendant sa fenêtre en séquence, ou hors du temps de repos en boucle
+      const vis = sequence || w.end < 1 ? discreteVisibility([[w.start, w.end]]) : 1;
       return (
         <path
           key={key}
@@ -362,7 +363,7 @@ function EdgeAnimationView({
             dur={`${(a.duration * travel) / len}s`}
             repeatCount="indefinite"
           />
-          {visibilityAnim(vis, w.dur)}
+          {visibilityAnim(vis, w.dur, w.begin)}
         </path>
       );
     }
@@ -423,7 +424,8 @@ function EdgeAnimationView({
       const n = Math.max(1, Math.min(12, Math.round(a.particleCount)));
       const r = a.particleSize;
       const circles: ReactNode[] = [];
-      if (!sequence) {
+      if (!sequence && w.end >= 1) {
+        // Boucle sans repos : flux continu de particules régulièrement espacées
         for (let i = 0; i < n; i++) {
           const b = a.delay - (i * a.duration) / n;
           circles.push(
@@ -436,18 +438,21 @@ function EdgeAnimationView({
           );
         }
       } else {
+        // Séquence, ou boucle avec repos : un train de particules par fenêtre active
         const T = w.dur;
+        const base = sequence ? a.delay : 0;
         const travel = n === 1 ? a.duration : a.duration * 0.7;
         const stagger = n === 1 ? 0 : (a.duration * 0.3) / (n - 1);
         for (let i = 0; i < n; i++) {
-          const s = Math.min(1, (a.delay + i * stagger) / T);
-          const e = Math.min(1, (a.delay + i * stagger + travel) / T);
+          const s = Math.min(1, (base + i * stagger) / T);
+          const e = Math.min(1, (base + i * stagger + travel) / T);
           const kp = linearKeys(0, 0, 1, 1, s, e);
           const vis = discreteVisibility([[s, e]]);
           circles.push(
             <circle key={i} r={r} fill={color} opacity={staticOpacity(vis)} filter="url(#af-soft)">
               <animateMotion
                 dur={`${T}s`}
+                begin={`${w.begin}s`}
                 repeatCount="indefinite"
                 calcMode="linear"
                 keyPoints={kp.values}
@@ -455,7 +460,7 @@ function EdgeAnimationView({
               >
                 <mpath href={`#${pathId}`} />
               </animateMotion>
-              {visibilityAnim(vis, T)}
+              {visibilityAnim(vis, T, w.begin)}
             </circle>,
           );
         }

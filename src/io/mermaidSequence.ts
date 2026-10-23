@@ -129,6 +129,8 @@ export interface SequenceImportOptions {
   origin: Point;
   /** Durée d'animation d'un message (s) */
   messageDuration?: number;
+  /** Pause entre deux messages (s) */
+  pause?: number;
 }
 
 export interface ImportedElements {
@@ -139,8 +141,8 @@ export interface ImportedElements {
 
 const FILLS = ['#a5d8ff', '#b2f2bb', '#ffec99', '#eebefa', '#ffc9c9', '#99e9f2'];
 const STROKES = ['#1971c2', '#2f9e44', '#f08c00', '#9c36b5', '#e03131', '#0c8599'];
-/** Pause entre deux messages (s) */
-const MESSAGE_GAP = 0.3;
+/** Pause entre deux messages par défaut (s) */
+const DEFAULT_PAUSE = 0.3;
 
 export function sequenceToElements(src: string, opts: SequenceImportOptions): ImportedElements {
   const g = parseSequence(src);
@@ -160,7 +162,8 @@ function style(opts: SequenceImportOptions) {
 function layoutSequence(g: SequenceGraph, opts: SequenceImportOptions): ImportedElements {
   const st = style(opts);
   const dur = opts.messageDuration ?? 0.9;
-  const step = dur + MESSAGE_GAP;
+  const pause = opts.pause ?? DEFAULT_PAUSE;
+  const step = dur + pause;
   const idx = new Map(g.participants.map((p, i) => [p.id, i]));
   const pw = g.participants.map((p) => Math.max(110, measureText(p.label, st.font, st.size).width + 40));
   const boxH = 60;
@@ -383,14 +386,15 @@ function layoutSequence(g: SequenceGraph, opts: SequenceImportOptions): Imported
   return {
     nodes: [...frames, ...bars, ...participants, ...front],
     edges: [...lifelines, ...dividers, ...messages],
-    settings: { sequence: true, sequenceGap: 1.5 },
+    settings: { sequence: true, sequenceGap: 1.5, stepPause: pause },
   };
 }
 
 function layoutBoxes(g: SequenceGraph, opts: SequenceImportOptions): ImportedElements {
   const st = style(opts);
   const dur = opts.messageDuration ?? 1.2;
-  const step = dur + MESSAGE_GAP;
+  const pause = opts.pause ?? DEFAULT_PAUSE;
+  const step = dur + pause;
   const messages = g.events.filter((e): e is Extract<SeqEvent, { kind: 'message' }> => e.kind === 'message');
 
   // Dagre ne sert qu'à placer les boîtes : une seule arête par paire de participants (plus stable que le multigraphe)
@@ -462,7 +466,7 @@ function layoutBoxes(g: SequenceGraph, opts: SequenceImportOptions): ImportedEle
   });
 
   separateLabels(nodes, edges);
-  return { nodes, edges, settings: { sequence: true, sequenceGap: 1.5 } };
+  return { nodes, edges, settings: { sequence: true, sequenceGap: 1.5, stepPause: pause } };
 }
 
 /** Écarte les libellés qui se chevauchent en accentuant la courbure du lien concerné. */
