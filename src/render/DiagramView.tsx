@@ -13,7 +13,7 @@ import {
   type AnimWindow,
 } from '../animation';
 import { FONT_STACKS } from '../defaults';
-import { arrowHeadPath, center, edgeGeometry, nodeMap, type EdgeGeometry } from '../geometry';
+import { arrowHeadPath, center, edgeGeometry, nodeMap, repeatPositions, type Bounds, type EdgeGeometry } from '../geometry';
 import { measureText } from '../text';
 import type { Diagram, DiagramSettings, EdgeElement, FontFamily, NodeElement, Point } from '../types';
 
@@ -484,9 +484,44 @@ interface EdgeViewProps {
   cycle: number;
   hideLabel: boolean;
   revealAt: number | null;
+  /** Nom à rappeler le long du lien (nom de la forme de départ), si l'option est active */
+  repeatText: string | null;
+  repeatFont: FontFamily;
+  /** Emplacements libres des rappels */
+  repeatAt: Point[] | null;
 }
 
-export const EdgeView = memo(function EdgeView({ edge, geo, settings, cycle, hideLabel, revealAt }: EdgeViewProps) {
+/** Rappels discrets d'un nom le long d'un lien (lignes de vie des diagrammes de séquence). */
+const REPEAT_FONT_SIZE = 12;
+const NO_REPEAT = { repeatText: null, repeatFont: 'sans' as FontFamily, repeatAt: null };
+
+function RepeatedLabels({ positions, text, font, background }: { positions: Point[]; text: string; font: FontFamily; background: string }) {
+  const size = REPEAT_FONT_SIZE;
+  const w = measureText(text, font, size).width + 10;
+  return (
+    <g opacity={0.75}>
+      {positions.map((p, i) => (
+        <g key={i}>
+          <rect x={p.x - w / 2} y={p.y - size * 0.8} width={w} height={size * 1.6} rx={3} fill={background} />
+          <text
+            x={p.x}
+            y={p.y}
+            fontFamily={FONT_STACKS[font]}
+            fontSize={size}
+            fill="#868e96"
+            textAnchor="middle"
+            dominantBaseline="central"
+            style={{ userSelect: 'none' }}
+          >
+            {text}
+          </text>
+        </g>
+      ))}
+    </g>
+  );
+}
+
+export const EdgeView = memo(function EdgeView({ edge, geo, settings, cycle, hideLabel, revealAt, repeatText, repeatFont, repeatAt }: EdgeViewProps) {
   const a = edge.animation;
   const w = edgeWindow(edge, settings, cycle);
   const animated = a.type !== 'none';
@@ -506,6 +541,7 @@ export const EdgeView = memo(function EdgeView({ edge, geo, settings, cycle, hid
       <g opacity={baseOpacity}>
         <EdgeLine edge={edge} geo={geo} />
       </g>
+      {repeatText && repeatAt && <RepeatedLabels positions={repeatAt} text={repeatText} font={repeatFont} background={settings.background} />}
       {animated && <EdgeAnimationView edge={edge} geo={geo} w={w} sequence={settings.sequence} />}
       {heads.length > 0 && (
         <g key={`h-${a.type}-${w.dur}-${w.end}-${w.begin}`} opacity={staticOpacity(headVis)}>
@@ -588,6 +624,7 @@ export const DiagramContent = memo(function DiagramContent({
 }) {
   const cycle = diagram.settings.sequence ? sequenceCycle(diagram) : 0;
   const reveal = diagram.settings.sequence ? revealTimes(diagram) : null;
+  const repeat = useMemo(() => repeatLayout(diagram, geometries), [diagram, geometries]);
   return (
     <g className="af-content">
       <SvgDefs />
@@ -600,6 +637,7 @@ export const DiagramContent = memo(function DiagramContent({
           cycle={cycle}
           hideLabel={editingId === e.id}
           revealAt={reveal?.edges.get(e.id) ?? null}
+          {...(repeat.get(e.id) ?? NO_REPEAT)}
         />
       ))}
       {diagram.nodes.map((n) => (
@@ -615,6 +653,38 @@ export const DiagramContent = memo(function DiagramContent({
     </g>
   );
 });
+
+/** Rappels de nom (lignes de vie) : texte, police et emplacements libres, sans croiser liens ni libellés. */
+function repeatLayout(d: Diagram, geometries: Map<string, EdgeGeometry>) {
+  const out = new Map<string, { repeatText: string | null; repeatFont: FontFamily; repeatAt: Point[] | null }>();
+  const flagged = d.edges.filter((e) => e.repeatLabel && e.source.nodeId);
+  if (!flagged.length) return out;
+  const nodes = nodeMap(d.nodes);
+  const labelBox = (e: EdgeElement): Bounds | null => {
+    if (!e.label) return null;
+    const g = geometries.get(e.id)!;
+    const m = measureText(e.label, e.fontFamily, e.fontSize);
+    return { minX: g.mid.x - m.width / 2 - 6, maxX: g.mid.x + m.width / 2 + 6, minY: g.mid.y - m.height / 2 - 3, maxY: g.mid.y + m.height / 2 + 3 };
+  };
+  const labelBoxes = d.edges.map(labelBox).filter((b): b is Bounds => b !== null);
+  // Formes remplies (notes, boîtes) ; les cadres vides (loop, alt…) et les barres d'activation ne gênent pas
+  const shapeBoxes = d.nodes
+    .filter((n) => n.shape !== 'text' && n.fillStyle !== 'none' && n.fillColor !== 'transparent' && n.width > 20)
+    .map((n) => ({ minX: n.x, maxX: n.x + n.width, minY: n.y, maxY: n.y + n.height }));
+  for (const e of flagged) {
+    const src = nodes.get(e.source.nodeId!);
+    const text = src?.label.split('\n')[0].trim();
+    if (!src || !text) continue;
+    const size = { width: measureText(text, src.fontFamily, REPEAT_FONT_SIZE).width + 14, height: REPEAT_FONT_SIZE * 1.6 + 4 };
+    const lines = d.edges.filter((o) => o.id !== e.id && !o.repeatLabel).map((o) => geometries.get(o.id)!.points);
+    out.set(e.id, {
+      repeatText: text,
+      repeatFont: src.fontFamily,
+      repeatAt: repeatPositions(geometries.get(e.id)!, size, { lines, boxes: [...labelBoxes, ...shapeBoxes] }),
+    });
+  }
+  return out;
+}
 
 export function computeGeometries(d: Diagram): Map<string, EdgeGeometry> {
   const nodes = nodeMap(d.nodes);

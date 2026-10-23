@@ -73,6 +73,9 @@ doit être transmis ; `VITE_COLLAB_URL` permet aussi de pointer vers un relais h
       `loop/alt/opt/par/critical/break` (avec `else`), barres d'activation, `autonumber` — tout apparaît dans l'ordre ;
     - *Schéma en boîtes* : un participant = une boîte, un message = un lien numéroté, courbé pour ne pas chevaucher
       les autres ; les flux s'enchaînent dans l'ordre chronologique (notes et blocs non représentés).
+    Sur les grands diagrammes, les participants sont des **en-têtes collants** (rappelés en haut de la vue quand ils
+    en sortent, y compris dans le SVG animé et la vidéo avec la caméra) et leur nom est **rappelé le long des lignes
+    de vie** (placé hors des messages). Les deux options existent pour toute forme / tout lien (panneau Propriétés).
     Les messages d'un rendu séquence ont des extrémités libres : déplacer un participant ne déplace pas ses messages
     (sélectionnez tout pour déplacer le diagramme).
 

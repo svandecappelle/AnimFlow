@@ -202,6 +202,7 @@ function layoutSequence(g: SequenceGraph, opts: SequenceImportOptions): Imported
       roughness: opts.roughness,
       fontFamily: st.font,
       fontSize: st.size,
+      sticky: true,
     }),
   );
 
@@ -378,6 +379,7 @@ function layoutSequence(g: SequenceGraph, opts: SequenceImportOptions): Imported
       strokeWidth: 1.5,
       arrowHeads: 'none',
       roughness: 0,
+      repeatLabel: true,
     });
     e.animation = { ...e.animation, type: 'none' };
     return e;

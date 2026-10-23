@@ -7,6 +7,7 @@ import { center, distanceToPolyline, nodeContains, nodeMap, type EdgeGeometry } 
 import { computeGeometries, DiagramContent } from '../render/DiagramView';
 import { setCanvasSvg, useStore, type Peer, type Viewport } from '../store';
 import { measureText } from '../text';
+import { STICKY, stickyFill, stickyLabel, stickyNodes, stickyVisible, stickyWidth } from '../sticky';
 import type { EdgeElement, EdgeEnd, NodeElement, Point, ShapeType } from '../types';
 
 type Handle = 'nw' | 'ne' | 'sw' | 'se';
@@ -450,6 +451,7 @@ export function Canvas() {
           {peers.length > 0 && <RemotePresence peers={peers} nodesById={nodesById} geometries={geometries} zoom={viewport.zoom} />}
         </g>
       </svg>
+      <StickyHeaders nodes={diagram.nodes} viewport={viewport} onSelect={(id) => select([id])} />
       {editingId && <TextEditor id={editingId} geometries={geometries} />}
     </div>
   );
@@ -617,6 +619,47 @@ function RemotePresence({
         </g>
       ))}
     </g>
+  );
+}
+
+/** En-têtes collants : rappel en haut de la vue des formes `sticky` sorties par le haut (colonnes de séquence). */
+function StickyHeaders({ nodes, viewport, onSelect }: { nodes: NodeElement[]; viewport: Viewport; onSelect: (id: string) => void }) {
+  const sticky = stickyNodes(nodes);
+  if (!sticky.length) return null;
+  const viewTop = -viewport.y / viewport.zoom;
+  const scale = 1 / viewport.zoom;
+  const width = typeof window !== 'undefined' ? window.innerWidth : 2000;
+  return (
+    <div className="sticky-headers">
+      {sticky
+        .filter((n) => stickyVisible(n, viewTop, scale))
+        .map((n) => {
+          const x = (n.x + n.width / 2) * viewport.zoom + viewport.x;
+          if (x < -STICKY.maxWidth || x > width + STICKY.maxWidth) return null;
+          const w = stickyWidth(n);
+          return (
+            <button
+              key={n.id}
+              className="sticky-header"
+              style={{
+                left: x - w / 2,
+                top: STICKY.margin,
+                width: w,
+                height: STICKY.height,
+                background: stickyFill(n),
+                borderColor: n.strokeColor,
+                color: n.textColor,
+                fontFamily: FONT_STACKS[n.fontFamily],
+                fontSize: STICKY.fontSize,
+              }}
+              title={`${n.label} — cliquer pour sélectionner`}
+              onClick={() => onSelect(n.id)}
+            >
+              {stickyLabel(n)}
+            </button>
+          );
+        })}
+    </div>
   );
 }
 

@@ -1,5 +1,7 @@
 import { FONTS_CSS_URL, normalizeDiagram } from '../defaults';
-import { cameraKeyframes, cameraSmil } from '../camera';
+import { cameraKeyframes, cameraSmil, type CameraKey } from '../camera';
+import { FONT_STACKS } from '../defaults';
+import { STICKY, stickyFill, stickyLabel, stickyNodes, stickyVisible, stickyWidth } from '../sticky';
 import { diagramBounds } from '../geometry';
 import type { Diagram } from '../types';
 import { emptyDiagram } from '../defaults';
@@ -57,8 +59,9 @@ export function exportSvgString(d: Diagram, canvas: SVGSVGElement, padding = 40,
   }
 
   const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('xmlns', SVG_NS);
-  svg.setAttribute('xmlns:xlink', XLINK_NS);
+  // L'espace de noms SVG est déclaré par le sérialiseur (élément créé avec createElementNS) : le redéclarer en
+  // attribut produit un `xmlns` en double, rejeté par les analyseurs XML stricts
+  svg.setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:xlink', XLINK_NS);
   svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
   svg.setAttribute('width', String(w));
   svg.setAttribute('height', String(h));
@@ -84,7 +87,8 @@ export function exportSvgString(d: Diagram, canvas: SVGSVGElement, padding = 40,
   svg.append(meta, style, bg, clone);
 
   // Caméra de suivi : animation du viewBox (mêmes images clés que dans l'éditeur)
-  const cam = cameraSmil(cameraKeyframes(d, { width: w, height: h }));
+  const camKeys = cameraKeyframes(d, { width: w, height: h });
+  const cam = cameraSmil(camKeys);
   if (cam) {
     const anim = document.createElementNS(SVG_NS, 'animate');
     anim.setAttribute('attributeName', 'viewBox');
@@ -95,8 +99,73 @@ export function exportSvgString(d: Diagram, canvas: SVGSVGElement, padding = 40,
     anim.setAttribute('dur', `${cam.dur}s`);
     anim.setAttribute('repeatCount', 'indefinite');
     svg.append(anim);
+    // En-têtes collants : suivent la caméra (mêmes images clés), à taille constante à l'écran
+    const headers = stickyHeadersSvg(d, camKeys, w);
+    if (headers) svg.append(headers);
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n${new XMLSerializer().serializeToString(svg)}`;
+}
+
+function svgEl(tag: string, attrs: Record<string, string | number>, children: Node[] = []): SVGElement {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+  el.append(...children);
+  return el;
+}
+
+/**
+ * En-têtes collants animés pour un SVG dont la caméra anime le viewBox : pour chaque image clé, position en haut
+ * du cadre, échelle inverse du zoom (taille constante à l'écran) et visibilité (seulement quand la forme est sortie
+ * par le haut). Interpolés avec les mêmes temps et courbes que le viewBox.
+ */
+function stickyHeadersSvg(d: Diagram, keys: CameraKey[], outputWidth: number): SVGElement | null {
+  const nodes = stickyNodes(d.nodes);
+  if (!nodes.length || keys.length < 2) return null;
+  const cycle = keys[keys.length - 1].t;
+  const timing = {
+    keyTimes: keys.map((k) => String(Math.round((k.t / cycle) * 10000) / 10000)).join(';'),
+    keySplines: keys.slice(1).map(() => '0.5 0 0.5 1').join(';'),
+    calcMode: 'spline',
+    dur: `${cycle}s`,
+    repeatCount: 'indefinite',
+  };
+  const r = (n: number) => Math.round(n * 100) / 100;
+  const scales = keys.map((k) => (k.b.maxX - k.b.minX) / outputWidth);
+  const group = svgEl('g', { class: 'af-sticky' });
+  for (const n of nodes) {
+    const cx = n.x + n.width / 2;
+    const w = stickyWidth(n);
+    const header = svgEl('g', {}, [
+      svgEl('animateTransform', { attributeName: 'transform', type: 'scale', values: scales.map(r).join(';'), ...timing }),
+      svgEl('rect', { x: -w / 2, y: 0, width: w, height: STICKY.height, rx: 6, fill: stickyFill(n), stroke: n.strokeColor, 'stroke-width': 1.5 }),
+      svgEl(
+        'text',
+        {
+          x: 0,
+          y: STICKY.height / 2,
+          'font-family': FONT_STACKS[n.fontFamily],
+          'font-size': STICKY.fontSize,
+          fill: n.textColor,
+          'text-anchor': 'middle',
+          'dominant-baseline': 'central',
+        },
+        [document.createTextNode(stickyLabel(n))],
+      ),
+    ]);
+    const positioned = svgEl('g', {}, [
+      svgEl('animateTransform', {
+        attributeName: 'transform',
+        type: 'translate',
+        values: keys.map((k, i) => `${r(cx)} ${r(k.b.minY + STICKY.margin * scales[i])}`).join(';'),
+        ...timing,
+      }),
+      header,
+    ]);
+    const visibility = keys.map((k, i) => (stickyVisible(n, k.b.minY, scales[i]) ? 0.95 : 0));
+    if (visibility.every((v) => v === 0)) continue;
+    group.append(svgEl('g', { opacity: 0 }, [svgEl('animate', { attributeName: 'opacity', values: visibility.join(';'), ...timing }), positioned]));
+  }
+  return group.childNodes.length ? group : null;
 }
 
 /** PNG statique (2x) de l'état courant. */

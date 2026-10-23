@@ -314,6 +314,18 @@ export function PropertiesPanel() {
           <Row label="Texte">
             <Colors colors={STROKE_COLORS} value={first(nodes, 'textColor')} onChange={(textColor) => patchNodes({ textColor })} />
           </Row>
+          {nodes.some((n) => n.shape !== 'text') && (
+            <Row label="En-tête collant (reste visible en haut de la vue)">
+              <Segmented
+                value={!!first(nodes, 'sticky')}
+                onChange={(sticky) => patchNodes({ sticky })}
+                options={[
+                  { value: false, label: 'Non' },
+                  { value: true, label: 'Oui', title: 'Rappelée en haut de la vue quand la forme en sort (colonnes de séquence, couloirs)' },
+                ]}
+              />
+            </Row>
+          )}
           <Row label="Animation">
             <Segmented
               value={first(nodes, 'animation')}
@@ -432,6 +444,18 @@ export function PropertiesPanel() {
                 ]}
               />
             </Row>
+            {edges.some((e) => e.source.nodeId) && (
+              <Row label="Rappeler le nom de la forme de départ le long du lien">
+                <Segmented
+                  value={!!first(edges, 'repeatLabel')}
+                  onChange={(repeatLabel) => patchEdges({ repeatLabel })}
+                  options={[
+                    { value: false, label: 'Non' },
+                    { value: true, label: 'Oui', title: 'Tous les 400 px (lignes de vie des diagrammes de séquence)' },
+                  ]}
+                />
+              </Row>
+            )}
           </Section>
 
           <Section title="Animation du flux">

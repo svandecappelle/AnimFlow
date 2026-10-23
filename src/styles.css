@@ -999,3 +999,24 @@ kbd {
   border-radius: 1px;
   opacity: 0.75;
 }
+
+/* En-têtes collants (colonnes des diagrammes de séquence) */
+.sticky-headers {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 0;
+  pointer-events: none;
+}
+.sticky-header {
+  position: absolute;
+  pointer-events: auto;
+  border: 1.5px solid;
+  border-radius: 6px;
+  padding: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  opacity: 0.95;
+}

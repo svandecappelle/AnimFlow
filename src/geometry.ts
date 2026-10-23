@@ -285,3 +285,59 @@ export function reverseEdge(e: EdgeElement): EdgeElement {
     curvature: e.curvature === undefined ? undefined : -e.curvature,
   };
 }
+
+/** Espacement des rappels de nom le long d'un lien, et distance au départ du premier rappel */
+export const REPEAT_SPACING = 400;
+const REPEAT_FIRST = 260;
+
+/** Le segment [a, b] traverse-t-il le rectangle ? (Liang–Barsky) */
+function segmentHitsBox(a: Point, b: Point, r: Bounds): boolean {
+  let t0 = 0;
+  let t1 = 1;
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const clip = (p: number, q: number) => {
+    if (p === 0) return q >= 0;
+    const t = q / p;
+    if (p < 0) {
+      if (t > t1) return false;
+      if (t > t0) t0 = t;
+    } else {
+      if (t < t0) return false;
+      if (t < t1) t1 = t;
+    }
+    return true;
+  };
+  return clip(-dx, a.x - r.minX) && clip(dx, r.maxX - a.x) && clip(-dy, a.y - r.minY) && clip(dy, r.maxY - a.y);
+}
+
+export interface RepeatObstacles {
+  /** Tracés des autres liens */
+  lines: Point[][];
+  /** Zones occupées (libellés, formes) */
+  boxes: Bounds[];
+}
+
+/**
+ * Positions des rappels de nom le long d'un lien (aucune si le lien est trop court). Chaque rappel est décalé le
+ * long du lien jusqu'à une place libre, sans croiser d'autre lien ni libellé ; sans place libre, il est omis.
+ */
+export function repeatPositions(g: EdgeGeometry, size = { width: 80, height: 20 }, obstacles: RepeatObstacles = { lines: [], boxes: [] }): Point[] {
+  const out: Point[] = [];
+  const free = (p: Point) => {
+    const r = { minX: p.x - size.width / 2, maxX: p.x + size.width / 2, minY: p.y - size.height / 2, maxY: p.y + size.height / 2 };
+    if (obstacles.boxes.some((b) => b.minX < r.maxX && r.minX < b.maxX && b.minY < r.maxY && r.minY < b.maxY)) return false;
+    return !obstacles.lines.some((pts) => pts.some((q, i) => i > 0 && segmentHitsBox(pts[i - 1], q, r)));
+  };
+  for (let l = REPEAT_FIRST; l <= g.length - 120; l += REPEAT_SPACING) {
+    for (let k = 0; k <= REPEAT_SPACING / 2; k += 6) {
+      const offsets = k === 0 ? [0] : [k, -k];
+      const hit = offsets.map((o) => l + o).find((pos) => pos > 60 && pos < g.length - 40 && free(pointAtLength(g.points, pos)));
+      if (hit !== undefined) {
+        out.push(pointAtLength(g.points, hit));
+        break;
+      }
+    }
+  }
+  return out;
+}

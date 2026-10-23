@@ -38,6 +38,8 @@ export interface NodeElement {
   reveal: NodeReveal;
   /** Instant d'apparition imposé (s) ; null = à l'arrivée du premier flux */
   revealDelay: number | null;
+  /** En-tête collant : reste affiché en haut de la vue quand la forme en sort (participants d'un diagramme de séquence) */
+  sticky?: boolean;
   seed: number;
 }
 
@@ -82,6 +84,8 @@ export interface EdgeElement {
   reveal: boolean;
   /** Courbure d'un lien « courbe » (0.25 par défaut, négatif = de l'autre côté) */
   curvature?: number;
+  /** Rappelle le nom de la forme de départ à intervalles réguliers le long du lien (lignes de vie) */
+  repeatLabel?: boolean;
   seed: number;
 }
 
