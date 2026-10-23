@@ -30,6 +30,8 @@ export interface WorkspaceIndex {
   workspaces: Workspace[];
   currentWorkspaceId: string;
   currentDocId: string;
+  /** Mises à jour ponctuelles déjà appliquées aux documents enregistrés */
+  migrations?: string[];
 }
 
 const INDEX_KEY = 'animflow:workspaces';
@@ -82,11 +84,78 @@ export function removeDoc(id: string) {
   }
 }
 
+const SEQUENCE_COLUMNS_MIGRATION = 'sequence-columns';
+
+/**
+ * Ligne de vie créée par l'import d'un diagramme de séquence : part du bas d'un participant, descend tout droit,
+ * pointillé gris de 1,5 px, sans pointe ni animation. Signature volontairement stricte (aucun faux positif sur un
+ * lien dessiné à la main).
+ */
+export function isSequenceLifeline(e: Diagram['edges'][number], nodes: Map<string, Diagram['nodes'][number]>): boolean {
+  const n = e.source.nodeId ? nodes.get(e.source.nodeId) : undefined;
+  return (
+    !!n &&
+    !e.target.nodeId &&
+    Math.abs(e.target.x - (n.x + n.width / 2)) < 1 &&
+    e.target.y > n.y + n.height &&
+    e.routing === 'straight' &&
+    e.strokeStyle === 'dashed' &&
+    e.strokeColor === '#adb5bd' &&
+    e.strokeWidth === 1.5 &&
+    e.arrowHeads === 'none' &&
+    e.animation.type === 'none'
+  );
+}
+
+/**
+ * Active les options de colonnes sur un diagramme de séquence importé avant leur création : en-tête collant sur les
+ * participants, rappel du nom le long des lignes de vie. Une option déjà réglée (même à « Non ») est respectée.
+ */
+export function enableSequenceColumns(d: Diagram): { diagram: Diagram; changed: boolean } {
+  const nodes = new Map(d.nodes.map((n) => [n.id, n]));
+  const lifelines = d.edges.filter((e) => isSequenceLifeline(e, nodes));
+  if (!lifelines.length) return { diagram: d, changed: false };
+  const participants = new Set(lifelines.map((e) => e.source.nodeId!));
+  const lifelineIds = new Set(lifelines.map((e) => e.id));
+  let changed = false;
+  const diagram: Diagram = {
+    ...d,
+    nodes: d.nodes.map((n) => {
+      if (!participants.has(n.id) || n.sticky !== undefined) return n;
+      changed = true;
+      return { ...n, sticky: true };
+    }),
+    edges: d.edges.map((e) => {
+      if (!lifelineIds.has(e.id) || e.repeatLabel !== undefined) return e;
+      changed = true;
+      return { ...e, repeatLabel: true };
+    }),
+  };
+  return { diagram, changed };
+}
+
+/** Applique une fois les mises à jour ponctuelles à tous les documents enregistrés ; renvoie le nombre modifié. */
+function runMigrations(index: WorkspaceIndex): number {
+  const done = new Set(index.migrations ?? []);
+  if (done.has(SEQUENCE_COLUMNS_MIGRATION)) return 0;
+  let count = 0;
+  for (const ws of index.workspaces) {
+    for (const meta of ws.docs) {
+      const d = loadDoc(meta.id);
+      if (!d) continue;
+      const { diagram, changed } = enableSequenceColumns(d);
+      if (changed && saveDoc(meta.id, diagram)) count++;
+    }
+  }
+  index.migrations = [...done, SEQUENCE_COLUMNS_MIGRATION];
+  return count;
+}
+
 /**
  * Charge l'index (en le réparant si besoin). Au premier lancement, ou depuis une version sans workspaces,
  * crée le workspace « Personnel » avec le schéma existant ou `firstDiagram`.
  */
-export function loadIndex(firstDiagram: () => Diagram): { index: WorkspaceIndex; diagram: Diagram } {
+export function loadIndex(firstDiagram: () => Diagram): { index: WorkspaceIndex; diagram: Diagram; migrated: number } {
   const index = read<WorkspaceIndex>(INDEX_KEY);
   if (index?.workspaces?.length) {
     // Réparation : documents dont le contenu a disparu, document courant introuvable
@@ -101,8 +170,11 @@ export function loadIndex(firstDiagram: () => Diagram): { index: WorkspaceIndex;
       saveDoc(meta.id, diagram);
     }
     const fixed: WorkspaceIndex = { ...index, currentWorkspaceId: ws.id, currentDocId: meta.id };
+    const migrated = runMigrations(fixed);
+    // Le document ouvert a pu être mis à jour : on le relit
+    if (migrated) diagram = loadDoc(meta.id) ?? diagram;
     saveIndex(fixed);
-    return { index: fixed, diagram };
+    return { index: fixed, diagram, migrated };
   }
 
   // Migration depuis la version mono-document, ou premier lancement
@@ -124,13 +196,15 @@ export function loadIndex(firstDiagram: () => Diagram): { index: WorkspaceIndex;
   };
   created.currentWorkspaceId = created.workspaces[0].id;
   saveDoc(meta.id, diagram);
+  const migrated = runMigrations(created);
+  if (migrated) diagram = loadDoc(meta.id) ?? diagram;
   saveIndex(created);
   try {
     localStorage.removeItem(LEGACY_KEY);
   } catch {
     // sans importance
   }
-  return { index: created, diagram };
+  return { index: created, diagram, migrated };
 }
 
 export interface WorkspaceFile {

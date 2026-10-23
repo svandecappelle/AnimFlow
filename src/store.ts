@@ -99,7 +99,9 @@ const existing = (d: Diagram, ids: string[]) => {
 };
 
 const initial = loadIndex(createExampleDiagram);
-let toastTimer: ReturnType<typeof setTimeout> | undefined;
+let toastTimer: ReturnType<typeof setTimeout> | undefined = initial.migrated
+  ? setTimeout(() => useStore.setState({ toast: null }), 8000)
+  : undefined;
 /** Historiques d'annulation des documents non ouverts (en mémoire, le temps de la session) */
 const histories = new Map<string, { past: Diagram[]; future: Diagram[] }>();
 
@@ -112,7 +114,10 @@ export const useStore = create<State>((set, get) => ({
   storageFull: false,
   collab: null,
   peers: [],
-  toast: null,
+  toast:
+    initial.migrated > 0
+      ? `Colonnes activées sur ${initial.migrated} diagramme${initial.migrated > 1 ? 's' : ''} de séquence : en-têtes collants et noms rappelés le long des lignes de vie.`
+      : null,
   rightTab: 'props',
   selectedIds: [],
   tool: 'select',
