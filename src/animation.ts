@@ -25,10 +25,19 @@ export interface AnimWindow {
   begin: number;
 }
 
+/**
+ * Durée d'un cycle en mode séquence : fin du dernier élément minuté + pause de fin de cycle.
+ * Éléments minutés : liens animés, liens « apparition » non animés, formes à instant d'apparition imposé
+ * (les formes « Auto » apparaissent à la fin d'un flux, déjà compté).
+ */
 export function sequenceCycle(d: Diagram): number {
   let m = 0;
   for (const e of d.edges) {
     if (e.animation.type !== 'none') m = Math.max(m, e.animation.delay + e.animation.duration);
+    else if (e.reveal) m = Math.max(m, e.animation.delay + REVEAL_DURATION);
+  }
+  for (const n of d.nodes) {
+    if (n.reveal !== 'none' && n.revealDelay != null) m = Math.max(m, n.revealDelay + REVEAL_DURATION);
   }
   return Math.max(0.5, m + d.settings.sequenceGap);
 }

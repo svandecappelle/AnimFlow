@@ -24,7 +24,16 @@ export function Timeline() {
     return () => cancelAnimationFrame(raf);
   }, [cycle]);
 
+  // Repères : flux animés (barres), apparitions imposées de formes et de liens (losanges)
   const markers = diagram.edges.filter((e) => e.animation.type !== 'none');
+  const reveals = [
+    ...diagram.nodes
+      .filter((n) => n.reveal !== 'none' && n.revealDelay != null)
+      .map((n) => ({ id: n.id, at: n.revealDelay!, title: `Apparition : ${n.label.split('\n')[0] || 'forme'}`, color: n.strokeColor })),
+    ...diagram.edges
+      .filter((e) => e.animation.type === 'none' && e.reveal)
+      .map((e) => ({ id: e.id, at: e.animation.delay, title: `Apparition : ${e.label || 'lien'}`, color: e.strokeColor })),
+  ];
 
   return (
     <div className="timeline panel">
@@ -51,6 +60,9 @@ export function Timeline() {
               background: e.animation.color ?? e.strokeColor,
             }}
           />
+        ))}
+        {reveals.map((r) => (
+          <div key={r.id} className="marker-reveal" title={`${r.title} (${r.at.toFixed(1)} s)`} style={{ left: `${(r.at / cycle) * 100}%`, background: r.color }} />
         ))}
         <div className="progress" ref={barRef} />
       </div>
