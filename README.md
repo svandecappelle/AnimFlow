@@ -13,6 +13,14 @@ npm run build      # build dans dist/
 npm start          # production : sert dist/ + le relais de collaboration (PORT, HOST configurables)
 ```
 
+Accès par un nom d'hôte (Vite refuse par défaut les noms qu'il ne connaît pas) : `hostname-test` est
+autorisé ; pour d'autres, utilisez la variable `ALLOWED_HOSTS` (noms séparés par des virgules, ou `all`) :
+
+```bash
+ALLOWED_HOSTS=mon-hote.example.com,autre.example.com npm run dev -- --host
+ALLOWED_HOSTS=all npm run preview -- --host
+```
+
 Pour collaborer à plusieurs machines, exposez le serveur sur le réseau (`npm run dev -- --host`, ou
 `HOST=0.0.0.0 PORT=8080 npm start`) et partagez le lien de session. Derrière un proxy HTTPS, le WebSocket `/collab`
 doit être transmis ; `VITE_COLLAB_URL` permet aussi de pointer vers un relais hébergé ailleurs.
