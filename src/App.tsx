@@ -15,7 +15,10 @@ import {
 import { Canvas } from './components/Canvas';
 import { MermaidDialog } from './components/MermaidDialog';
 import { PropertiesPanel } from './components/PropertiesPanel';
+import { ShareDialog } from './components/ShareDialog';
 import { Sidebar } from './components/Sidebar';
+import { roomFromHash } from './collab';
+import { joinRoom } from './workspaceActions';
 import { Timeline } from './components/Timeline';
 import { TOOL_KEYS, Toolbar } from './components/Toolbar';
 import { TopBar } from './components/TopBar';
@@ -53,12 +56,28 @@ export default function App() {
   const [mermaid, setMermaid] = useState<'import' | 'export' | null>(null);
   const [help, setHelp] = useState(false);
   const [video, setVideo] = useState(false);
+  const [share, setShare] = useState(false);
   const [dropping, setDropping] = useState(false);
   const sequence = useStore((s) => s.diagram.settings.sequence);
   const sidebarOpen = useStore((s) => s.sidebarOpen);
 
   useEffect(() => {
     requestAnimationFrame(() => zoomToFit());
+  }, []);
+
+  // Lien de collaboration (#room=…) : à l'ouverture et quand il change
+  useEffect(() => {
+    const join = () => {
+      const room = roomFromHash();
+      if (room && useStore.getState().collab?.room !== room) {
+        joinRoom(room);
+        setShare(true);
+        requestAnimationFrame(() => zoomToFit());
+      }
+    };
+    join();
+    window.addEventListener('hashchange', join);
+    return () => window.removeEventListener('hashchange', join);
   }, []);
 
   useEffect(() => {
@@ -165,7 +184,7 @@ export default function App() {
         if (file) void importFile(file, e.shiftKey ? 'add' : 'new');
       }}
     >
-      <TopBar onMermaid={setMermaid} onHelp={() => setHelp(true)} onVideo={() => setVideo(true)} />
+      <TopBar onMermaid={setMermaid} onHelp={() => setHelp(true)} onVideo={() => setVideo(true)} onShare={() => setShare(true)} />
       <main className={`workspace ${sidebarOpen ? 'with-sidebar' : ''}`}>
         <Canvas />
         {sidebarOpen && <Sidebar />}
@@ -175,6 +194,7 @@ export default function App() {
         {dropping && <div className="drop-overlay">Déposez un fichier (schéma, workspace, SVG AnimFlow ou Mermaid) : ouvert dans un nouveau document — Maj : ajouter au document courant</div>}
       </main>
       {mermaid && <MermaidDialog mode={mermaid} onClose={() => setMermaid(null)} />}
+      {share && <ShareDialog onClose={() => setShare(false)} />}
       {video && (
         <Suspense fallback={null}>
           <VideoDialog onClose={() => setVideo(false)} />

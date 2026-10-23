@@ -40,14 +40,18 @@ export function TopBar({
   onMermaid,
   onHelp,
   onVideo,
+  onShare,
 }: {
   onMermaid: (mode: 'import' | 'export') => void;
   onHelp: () => void;
   onVideo: () => void;
+  onShare: () => void;
 }) {
   const playing = useStore((s) => s.playing);
-  const canUndo = useStore((s) => s.past.length > 0);
-  const canRedo = useStore((s) => s.future.length > 0);
+  const canUndo = useStore((s) => (s.collab ? s.collab.canUndo : s.past.length > 0));
+  const canRedo = useStore((s) => (s.collab ? s.collab.canRedo : s.future.length > 0));
+  const collab = useStore((s) => s.collab);
+  const peers = useStore((s) => s.peers);
   const zoom = useStore((s) => s.viewport.zoom);
   const sequence = useStore((s) => s.diagram.settings.sequence);
   const camera = useStore((s) => s.diagram.settings.camera);
@@ -97,6 +101,25 @@ export function TopBar({
       </button>
 
       <div className="spacer" />
+
+      {collab && (
+        <div className="avatars" onClick={onShare} title={peers.map((p) => p.name).join(', ') || 'Seul dans la session'}>
+          {peers.slice(0, 5).map((p) => (
+            <span key={p.clientId} className="avatar" style={{ background: p.color }}>
+              {p.name.charAt(0).toUpperCase()}
+            </span>
+          ))}
+          {peers.length > 5 && <span className="avatar more">+{peers.length - 5}</span>}
+        </div>
+      )}
+      <button
+        className={`btn share-btn ${collab ? (collab.status === 'connected' ? 'live' : 'warn') : ''}`}
+        title="Collaboration en direct"
+        onClick={onShare}
+      >
+        {collab ? <span className={`status-dot ${collab.status}`} /> : '👥'} {collab ? `En direct · ${peers.length + 1}` : 'Partager'}
+      </button>
+      <div className="sep" />
 
       <button className="icon-btn" title="Annuler — Ctrl+Z" disabled={!canUndo} onClick={undo}>
         {icons.undo}

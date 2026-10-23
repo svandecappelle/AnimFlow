@@ -15,6 +15,8 @@ export interface DocMeta {
   updatedAt: number;
   nodes: number;
   edges: number;
+  /** Salle de collaboration associée (rejoindre le même lien rouvre ce document) */
+  room?: string;
 }
 
 export interface Workspace {

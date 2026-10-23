@@ -1,3 +1,4 @@
+import { startSession, stopSession } from './collab';
 import { emptyDiagram, uid } from './defaults';
 import { download } from './io/files';
 import { flushSave, useStore } from './store';
@@ -178,4 +179,34 @@ export function importWorkspace(file: WorkspaceFile) {
   st().setWorkspaces({ workspaces: [...st().workspaces, ws] });
   if (ws.docs.length) openDocument(ws.docs[0].id);
   else createDocument('Sans titre', emptyDiagram(), ws.id);
+}
+
+/** Associe (ou dissocie) une salle de collaboration à un document. */
+export function setDocRoom(docId: string, room: string | undefined) {
+  const found = findDoc(docId);
+  if (!found) return;
+  st().setWorkspaces({
+    workspaces: mapWorkspace(found.workspace.id, (w) => ({ ...w, docs: w.docs.map((m) => (m.id === docId ? { ...m, room } : m)) })),
+  });
+}
+
+/** Partage le document ouvert dans une nouvelle salle (ou sa salle habituelle). */
+export function shareCurrentDocument(room: string) {
+  setDocRoom(st().currentDocId, room);
+  history.replaceState(null, '', `#room=${room}`);
+  startSession(room);
+}
+
+/** Rejoint une salle depuis un lien : rouvre le document déjà associé, sinon crée « Session partagée ». */
+export function joinRoom(room: string) {
+  if (st().collab?.room === room) return;
+  stopSession();
+  let existing: string | undefined;
+  for (const w of st().workspaces) existing ??= w.docs.find((m) => m.room === room)?.id;
+  if (existing) openDocument(existing);
+  else {
+    createDocument('Session partagée');
+    setDocRoom(st().currentDocId, room);
+  }
+  startSession(room);
 }

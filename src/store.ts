@@ -5,6 +5,34 @@ import { docMeta, loadIndex, saveDoc, saveIndex, type Workspace } from './worksp
 
 export type Tool = 'select' | 'hand' | 'rectangle' | 'rounded' | 'ellipse' | 'diamond' | 'arrow' | 'text';
 
+/** Participant distant d'une session de collaboration */
+export interface Peer {
+  clientId: number;
+  name: string;
+  color: string;
+  cursor: { x: number; y: number } | null;
+  selection: string[];
+}
+
+export interface CollabInfo {
+  room: string;
+  status: 'connecting' | 'connected' | 'disconnected';
+  canUndo: boolean;
+  canRedo: boolean;
+}
+
+/** En collaboration, annuler/rétablir est délégué (seules les modifications locales sont annulées). */
+interface HistoryDelegate {
+  /** Début d'une nouvelle étape d'annulation */
+  mark(): void;
+  undo(): void;
+  redo(): void;
+}
+let historyDelegate: HistoryDelegate | null = null;
+export const setHistoryDelegate = (d: HistoryDelegate | null) => {
+  historyDelegate = d;
+};
+
 export interface Viewport {
   x: number;
   y: number;
@@ -31,6 +59,8 @@ interface State {
   sidebarOpen: boolean;
   /** La dernière sauvegarde a échoué (stockage du navigateur plein) */
   storageFull: boolean;
+  collab: CollabInfo | null;
+  peers: Peer[];
 
   setTool(tool: Tool): void;
   select(ids: string[]): void;
@@ -40,6 +70,8 @@ interface State {
   setEditing(id: string | null): void;
   setCameraSuspended(s: boolean): void;
   setSidebarOpen(open: boolean): void;
+  setCollab(patch: Partial<CollabInfo> | null): void;
+  setPeers(peers: Peer[]): void;
   /** Met à jour l'index des workspaces (persisté immédiatement). */
   setWorkspaces(patch: Partial<Pick<State, 'workspaces' | 'currentWorkspaceId' | 'currentDocId'>>): void;
   /** Bascule vers un autre document : sauvegarde le courant, conserve son historique d'annulation. */
@@ -72,6 +104,8 @@ export const useStore = create<State>((set, get) => ({
   currentDocId: initial.index.currentDocId,
   sidebarOpen: false,
   storageFull: false,
+  collab: null,
+  peers: [],
   selectedIds: [],
   tool: 'select',
   viewport: { x: 0, y: 0, zoom: 1 },
@@ -90,6 +124,12 @@ export const useStore = create<State>((set, get) => ({
   setEditing: (editingId) => set({ editingId }),
   setCameraSuspended: (cameraSuspended) => set({ cameraSuspended }),
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
+  setCollab: (patch) =>
+    set((s) => ({
+      collab: patch === null ? null : ({ ...(s.collab ?? { room: '', status: 'connecting', canUndo: false, canRedo: false }), ...patch } as CollabInfo),
+      ...(patch === null ? { peers: [] } : {}),
+    })),
+  setPeers: (peers) => set({ peers }),
   setWorkspaces: (patch) => {
     set(patch);
     const s = get();
@@ -116,7 +156,10 @@ export const useStore = create<State>((set, get) => ({
     get().setWorkspaces({});
   },
 
-  pushHistory: () => set((s) => ({ past: [...s.past, s.diagram].slice(-HISTORY_LIMIT), future: [] })),
+  pushHistory: () => {
+    if (historyDelegate) historyDelegate.mark();
+    else set((s) => ({ past: [...s.past, s.diagram].slice(-HISTORY_LIMIT), future: [] }));
+  },
   apply: (fn) => set((s) => ({ diagram: fn(s.diagram) })),
   commit: (fn) => {
     get().pushHistory();
@@ -127,7 +170,7 @@ export const useStore = create<State>((set, get) => ({
     set({ diagram: d, selectedIds: [], editingId: null, cameraSuspended: false });
   },
   undo: () =>
-    set((s) => {
+    historyDelegate ? historyDelegate.undo() : set((s) => {
       if (!s.past.length) return {};
       const prev = s.past[s.past.length - 1];
       return {
@@ -138,7 +181,7 @@ export const useStore = create<State>((set, get) => ({
       };
     }),
   redo: () =>
-    set((s) => {
+    historyDelegate ? historyDelegate.redo() : set((s) => {
       if (!s.future.length) return {};
       const next = s.future[0];
       return {
@@ -164,7 +207,7 @@ export function flushSave() {
   const s = useStore.getState();
   const workspaces = s.workspaces.map((w) => ({
     ...w,
-    docs: w.docs.map((m) => (m.id === docId ? docMeta(m.id, m.name, diagram) : m)),
+    docs: w.docs.map((m) => (m.id === docId ? { ...m, ...docMeta(m.id, m.name, diagram) } : m)),
   }));
   useStore.setState({ storageFull: !ok });
   s.setWorkspaces({ workspaces });

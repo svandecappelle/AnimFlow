@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { CAMERA_MAX_ZOOM, cameraAt, cameraKeyframes, fitViewport, leftInset, visibleArea } from '../camera';
+import { updateCursor } from '../collab';
 import { createEdge, createNode, DEFAULT_SIZES, FONT_STACKS } from '../defaults';
 import { center, distanceToPolyline, nodeContains, nodeMap, type EdgeGeometry } from '../geometry';
 import { computeGeometries, DiagramContent } from '../render/DiagramView';
-import { setCanvasSvg, useStore, type Viewport } from '../store';
+import { setCanvasSvg, useStore, type Peer, type Viewport } from '../store';
 import { measureText } from '../text';
 import type { EdgeElement, EdgeEnd, NodeElement, Point, ShapeType } from '../types';
 
@@ -35,6 +36,7 @@ export function Canvas() {
   const restartToken = useStore((s) => s.restartToken);
   const cameraSuspended = useStore((s) => s.cameraSuspended);
   const sidebarOpen = useStore((s) => s.sidebarOpen);
+  const peers = useStore((s) => s.peers);
   const { select, setViewport, pushHistory, apply, commit, setTool, setEditing } = useStore.getState();
 
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -258,8 +260,9 @@ export function Canvas() {
   };
 
   const onPointerMove = (e: RPointerEvent<SVGSVGElement>) => {
-    if (!drag) return;
     const p = toWorld(e.clientX, e.clientY);
+    updateCursor(p);
+    if (!drag) return;
     switch (drag.kind) {
       case 'pan':
         setViewport({ ...drag.orig, x: drag.orig.x + e.clientX - drag.startClient.x, y: drag.orig.y + e.clientY - drag.startClient.y });
@@ -419,6 +422,7 @@ export function Canvas() {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={() => setDrag(null)}
+        onPointerLeave={() => updateCursor(null)}
         onDoubleClick={onDoubleClick}
         onContextMenu={(e) => e.preventDefault()}
       >
@@ -437,6 +441,7 @@ export function Canvas() {
             nodesById={nodesById}
             ghosts={diagram.settings.sequence ? diagram.nodes.filter((n) => n.reveal !== 'none' && (!playing || selected.has(n.id))) : []}
           />
+          {peers.length > 0 && <RemotePresence peers={peers} nodesById={nodesById} geometries={geometries} zoom={viewport.zoom} />}
         </g>
       </svg>
       {editingId && <TextEditor id={editingId} geometries={geometries} />}
@@ -550,6 +555,61 @@ function SelectionLayer(props: {
           const t = hoverNode ? center(hoverNode) : drag.current;
           return <line x1={s.x} y1={s.y} x2={t.x} y2={t.y} stroke={SELECTION_COLOR} strokeWidth={2 / zoom} strokeDasharray={`${6 / zoom} ${4 / zoom}`} />;
         })()}
+    </g>
+  );
+}
+
+/** Curseurs et sélections des autres participants (taille constante à l'écran). */
+function RemotePresence({
+  peers,
+  nodesById,
+  geometries,
+  zoom,
+}: {
+  peers: Peer[];
+  nodesById: Map<string, NodeElement>;
+  geometries: Map<string, EdgeGeometry>;
+  zoom: number;
+}) {
+  const k = 1 / zoom;
+  const pad = 9 * k;
+  return (
+    <g className="af-ui" pointerEvents="none">
+      {peers.map((p) => (
+        <g key={p.clientId}>
+          {p.selection.map((id) => {
+            const n = nodesById.get(id);
+            if (n)
+              return (
+                <rect
+                  key={id}
+                  x={n.x - pad}
+                  y={n.y - pad}
+                  width={n.width + pad * 2}
+                  height={n.height + pad * 2}
+                  rx={4 * k}
+                  fill="none"
+                  stroke={p.color}
+                  strokeWidth={2 * k}
+                  strokeDasharray={`${6 * k} ${3 * k}`}
+                />
+              );
+            const g = geometries.get(id);
+            return g ? <path key={id} d={g.d} fill="none" stroke={p.color} strokeOpacity={0.35} strokeWidth={10 * k} strokeLinecap="round" /> : null;
+          })}
+          {p.cursor && (
+            <g transform={`translate(${p.cursor.x} ${p.cursor.y}) scale(${k})`}>
+              <path d="M0 0 L0 17 L4.5 12.5 L8 20 L11 18.5 L7.5 11.5 L13 11.5 Z" fill={p.color} stroke="#fff" strokeWidth={1.5} strokeLinejoin="round" />
+              <g transform="translate(14 18)">
+                <rect x={0} y={0} width={p.name.length * 7 + 14} height={20} rx={6} fill={p.color} />
+                <text x={7} y={14} fontSize={12} fontFamily="Inter, system-ui, sans-serif" fill="#fff">
+                  {p.name}
+                </text>
+              </g>
+            </g>
+          )}
+        </g>
+      ))}
     </g>
   );
 }

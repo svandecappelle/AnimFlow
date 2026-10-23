@@ -7,10 +7,15 @@ avec des flux animés le long des liens et un import/export complet.
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
-npm test           # tests unitaires (vitest)
-npm run build      # build statique dans dist/
+npm run dev        # http://localhost:5173 (collaboration incluse)
+npm test           # tests (vitest)
+npm run build      # build dans dist/
+npm start          # production : sert dist/ + le relais de collaboration (PORT, HOST configurables)
 ```
+
+Pour collaborer à plusieurs machines, exposez le serveur sur le réseau (`npm run dev -- --host`, ou
+`HOST=0.0.0.0 PORT=8080 npm start`) et partagez le lien de session. Derrière un proxy HTTPS, le WebSocket `/collab`
+doit être transmis ; `VITE_COLLAB_URL` permet aussi de pointer vers un relais hébergé ailleurs.
 
 ## Fonctionnalités
 
@@ -38,6 +43,11 @@ npm run build      # build statique dans dist/
   garde son historique d'annulation pendant la session. Tout est enregistré dans le navigateur ; un workspace complet
   s'exporte / s'importe en un fichier `.animflow-workspace.json`. « Ouvrir » et le glisser-déposer créent un nouveau
   document.
+- **Collaboration en direct** (bouton 👥 Partager) : lien de session `#room=…`, modifications synchronisées en temps
+  réel (Yjs), curseurs nommés et sélections des participants, annuler/rétablir limité à ses propres modifications.
+  Chaque participant garde une copie dans ses documents ; rouvrir le lien rouvre ce document. Le relais (intégré à
+  Vite et à `npm start`) ne garde une session en mémoire que tant qu'un participant est connecté. Le contenu transite
+  en clair par le relais : hébergez-le vous-même.
 - **Import / export**
   - `.animflow.json` : format natif (Ctrl+S / Ctrl+O, ou glisser-déposer un fichier).
   - **SVG animé** (Ctrl+E) : autonome, lisible dans n'importe quel navigateur, intégrable dans une page ou un wiki ;
@@ -69,6 +79,8 @@ npm run build      # build statique dans dist/
 | `src/render/DiagramView.tsx` | Rendu SVG : formes rough.js + animations **SMIL** |
 | `src/components/Canvas.tsx` | Interactions de l'éditeur |
 | `src/io/files.ts` | Export SVG/PNG/JSON, reconnaissance des fichiers importés |
+| `src/collab.ts` / `src/collabEngine.ts` | Collaboration : salles, présence, réplication Yjs du schéma (moteur chargé à la demande) |
+| `server/collab.mjs` / `server/serve.mjs` | Relais WebSocket (protocole y-websocket) et serveur de production |
 | `src/io/video.ts` | Export vidéo : figement image par image des animations SMIL, encodage WebCodecs (mediabunny) / GIF (gifenc) |
 | `src/io/mermaid.ts` | Parseur Mermaid flowchart, mise en page dagre, export Mermaid |
 | `src/io/mermaidSequence.ts` | Parseur `sequenceDiagram`, rendus « séquence animée » et « schéma en boîtes » |
