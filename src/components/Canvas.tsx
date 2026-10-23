@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { CAMERA_MAX_ZOOM, cameraAt, cameraKeyframes, fitViewport, visibleArea } from '../camera';
+import { CAMERA_MAX_ZOOM, cameraAt, cameraKeyframes, fitViewport, leftInset, visibleArea } from '../camera';
 import { createEdge, createNode, DEFAULT_SIZES, FONT_STACKS } from '../defaults';
 import { center, distanceToPolyline, nodeContains, nodeMap, type EdgeGeometry } from '../geometry';
 import { computeGeometries, DiagramContent } from '../render/DiagramView';
@@ -34,6 +34,7 @@ export function Canvas() {
   const playing = useStore((s) => s.playing);
   const restartToken = useStore((s) => s.restartToken);
   const cameraSuspended = useStore((s) => s.cameraSuspended);
+  const sidebarOpen = useStore((s) => s.sidebarOpen);
   const { select, setViewport, pushHistory, apply, commit, setTool, setEditing } = useStore.getState();
 
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -65,14 +66,15 @@ export function Canvas() {
     const svg = svgRef.current;
     if (!cameraOn || !svg) return;
     const rect = svg.getBoundingClientRect();
-    const area = visibleArea(rect);
+    const inset = leftInset(useStore.getState().sidebarOpen);
+    const area = visibleArea(rect, inset);
     const keys = cameraKeyframes(diagram, area);
     if (!keys.length) return;
     let raf = 0;
     const tick = () => {
       const target = cameraAt(keys, svg.getCurrentTime());
       if (target) {
-        const goal = fitViewport(target, rect, CAMERA_MAX_ZOOM);
+        const goal = fitViewport(target, rect, CAMERA_MAX_ZOOM, inset);
         const cur = useStore.getState().viewport;
         // Lissage : rattrape la cible sans à-coup (y compris quand on réactive la caméra)
         const k = 0.18;
@@ -83,7 +85,7 @@ export function Canvas() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [cameraOn, diagram, setViewport]);
+  }, [cameraOn, diagram, setViewport, sidebarOpen]);
 
   // Molette : défilement ; Ctrl/pincement : zoom centré sur le pointeur
   useEffect(() => {

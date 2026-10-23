@@ -167,8 +167,11 @@ export function cameraSmil(keys: CameraKey[]): { values: string; keyTimes: strin
 }
 
 /** Zone du canevas non masquée par la barre d'outils, le panneau de propriétés et la timeline. */
-export function visibleArea(rect: { width: number; height: number }) {
-  const left = 80;
+/** Marge gauche du canevas masquée par la barre d'outils et, s'il est ouvert, le panneau des documents. */
+export const leftInset = (sidebarOpen: boolean) => (sidebarOpen ? 80 + 284 : 80);
+
+export function visibleArea(rect: { width: number; height: number }, insetLeft = 80) {
+  const left = insetLeft;
   const top = 30;
   const width = Math.max(100, rect.width - 310 - left);
   const height = Math.max(100, rect.height - 80 - top);
@@ -176,8 +179,8 @@ export function visibleArea(rect: { width: number; height: number }) {
 }
 
 /** Viewport qui cadre `b` dans la zone visible du canevas. */
-export function fitViewport(b: Bounds, rect: { width: number; height: number }, maxZoom = 1.5): Viewport {
-  const area = visibleArea(rect);
+export function fitViewport(b: Bounds, rect: { width: number; height: number }, maxZoom = 1.5, insetLeft = 80): Viewport {
+  const area = visibleArea(rect, insetLeft);
   const zoom = Math.min(maxZoom, Math.max(0.05, Math.min(area.width / (b.maxX - b.minX || 1), area.height / (b.maxY - b.minY || 1))));
   return {
     zoom,

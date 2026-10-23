@@ -580,3 +580,165 @@ kbd {
   mix-blend-mode: difference;
   color: white;
 }
+
+/* Panneau des documents / workspaces */
+.sidebar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  bottom: 12px;
+  width: 272px;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  z-index: 5;
+}
+.workspace.with-sidebar .toolbar {
+  left: 296px;
+}
+.ws-header {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.ws-select {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 8px;
+  font: inherit;
+  font-weight: 600;
+  background: white;
+}
+.ws-menu {
+  top: 40px;
+  right: 0;
+  left: auto;
+}
+.sidebar-tools {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0 6px;
+}
+.search {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 8px;
+  font: inherit;
+}
+.btn.primary.small {
+  height: 30px;
+  padding: 0 10px;
+}
+.doc-list {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0 -4px;
+  padding: 0 4px;
+}
+.doc-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.doc-item:hover {
+  background: var(--hover);
+}
+.doc-item.active {
+  background: var(--accent-soft);
+}
+.doc-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.doc-item .doc-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.doc-sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+.icon-btn.small {
+  width: 26px;
+  height: 26px;
+  flex: none;
+}
+.doc-menu {
+  position: fixed;
+  min-width: 220px;
+  z-index: 50;
+}
+.menu-item.danger {
+  color: var(--danger);
+  display: flex;
+  justify-content: flex-start;
+  gap: 6px;
+  align-items: center;
+}
+.menu-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.inline-input {
+  width: 100%;
+  height: 28px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 0 6px;
+  font: inherit;
+  outline: none;
+}
+.small-print {
+  font-size: 11px;
+  margin: 8px 2px 0;
+}
+.center {
+  text-align: center;
+}
+.doc-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 340px;
+  margin-right: 8px;
+  color: var(--muted);
+}
+.doc-title .ws-name {
+  cursor: pointer;
+  white-space: nowrap;
+}
+.doc-title .ws-name:hover {
+  color: var(--text);
+}
+.doc-title .doc-name {
+  color: var(--text);
+  font-weight: 500;
+  cursor: text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.doc-title .doc-name:hover {
+  background: var(--hover);
+}
+.doc-title .inline-input {
+  width: 200px;
+}

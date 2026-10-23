@@ -3,6 +3,8 @@ import { sequenceCycle } from '../animation';
 import { download } from '../io/files';
 import { defaultVideoDuration, exportVideo, supportedFormats, type VideoFormat } from '../io/video';
 import { getCanvasSvg, useStore } from '../store';
+import { fileSlug } from '../workspace';
+import { currentDocName } from '../workspaceActions';
 
 const SIZES: Record<VideoFormat, { label: string; width: number }[]> = {
   mp4: [
@@ -65,7 +67,7 @@ export function VideoDialog({ onClose }: { onClose: () => void }) {
     abort.current = new AbortController();
     try {
       const blob = await exportVideo(diagram, svg, { format, width, fps, duration, aspect: aspect || undefined, onProgress: setProgress, signal: abort.current.signal });
-      download(`schema-anime.${format}`, blob);
+      download(`${fileSlug(currentDocName())}.${format}`, blob);
       onClose();
     } catch (err) {
       if ((err as Error).name !== 'AbortError') setError((err as Error).message);

@@ -33,6 +33,11 @@ npm run build      # build statique dans dist/
   d'animation (proche / moyen / large, zoom plafonné à 160 %), puis montre l'ensemble en fin de cycle. Zoomer ou
   déplacer la vue la met en pause ; Lecture, la timeline ou 🎥 la relancent. Le SVG exporté suit la même caméra
   (animation du `viewBox`).
+- **Workspaces et documents** (bouton ☰ ou touche B) : plusieurs workspaces, chacun avec plusieurs documents
+  (créer, renommer — aussi en cliquant sur le titre —, dupliquer, déplacer, supprimer, rechercher). Chaque document
+  garde son historique d'annulation pendant la session. Tout est enregistré dans le navigateur ; un workspace complet
+  s'exporte / s'importe en un fichier `.animflow-workspace.json`. « Ouvrir » et le glisser-déposer créent un nouveau
+  document.
 - **Import / export**
   - `.animflow.json` : format natif (Ctrl+S / Ctrl+O, ou glisser-déposer un fichier).
   - **SVG animé** (Ctrl+E) : autonome, lisible dans n'importe quel navigateur, intégrable dans une page ou un wiki ;
@@ -56,7 +61,8 @@ npm run build      # build statique dans dist/
 | Fichier | Rôle |
 | --- | --- |
 | `src/types.ts` | Modèle de données (nœuds, liens, réglages) = format du fichier JSON |
-| `src/store.ts` | État global (zustand), historique, sauvegarde auto |
+| `src/store.ts` | État global (zustand), historique, sauvegarde auto du document courant |
+| `src/workspace.ts` / `src/workspaceActions.ts` | Stockage des workspaces et documents, migration, actions (créer, déplacer, exporter…) |
 | `src/geometry.ts` | Tracés des liens (droit, courbe, coudé), points de contour, hit-testing |
 | `src/animation.ts` | Timings des animations (boucle / séquence), séquençage automatique |
 | `src/camera.ts` | Caméra de suivi : images clés, interpolation, export SMIL du viewBox |

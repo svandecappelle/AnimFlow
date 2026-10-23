@@ -46,7 +46,7 @@ export function MermaidDialog({ mode, onClose }: { mode: 'import' | 'export'; on
     }
   }, [source]);
 
-  const run = (target: 'replace' | 'add') => {
+  const run = (target: 'replace' | 'add' | 'new') => {
     try {
       if (isSeq) {
         // L'ordre des messages fixe déjà les délais : pas de séquençage automatique
@@ -183,6 +183,9 @@ export function MermaidDialog({ mode, onClose }: { mode: 'import' | 'export'; on
             <div className="modal-actions">
               <button className="btn" onClick={onClose}>
                 Annuler
+              </button>
+              <button className="btn" disabled={!preview.ok} onClick={() => run('new')}>
+                Nouveau document
               </button>
               <button className="btn" disabled={!preview.ok} onClick={() => run('add')}>
                 Ajouter au schéma

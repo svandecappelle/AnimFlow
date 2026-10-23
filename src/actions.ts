@@ -1,11 +1,13 @@
 import { autoSequence } from './animation';
-import { fitViewport } from './camera';
+import { fitViewport, leftInset } from './camera';
 import { emptyDiagram, randomSeed, uid } from './defaults';
 import { diagramBounds } from './geometry';
 import { download, exportPngBlob, exportSvgString, FILE_EXTENSION, parseImportedText, pickFile, serializeDiagram } from './io/files';
 import { mermaidToElements, type MermaidImportOptions } from './io/mermaid';
 import { isSequenceDiagram, sequenceToElements, type SequenceImportOptions } from './io/mermaidSequence';
-import { getCanvasSvg, useStore } from './store';
+import { flushSave, getCanvasSvg, useStore } from './store';
+import { fileSlug } from './workspace';
+import { createDocument, currentDocName, importWorkspace } from './workspaceActions';
 import type { Diagram, EdgeElement, NodeElement } from './types';
 
 const st = () => useStore.getState();
@@ -82,6 +84,7 @@ export function pasteText(text: string): boolean {
   try {
     const parsed = parseImportedText(text);
     if (parsed.kind === 'diagram') addElements(parsed.diagram.nodes, parsed.diagram.edges);
+    else if (parsed.kind === 'workspace') importWorkspace(parsed.file);
     else importMermaid(parsed.source, 'add');
     return true;
   } catch {
@@ -107,10 +110,13 @@ export function nudgeSelected(dx: number, dy: number) {
   }));
 }
 
+/** « Nouveau » : nouveau document vide dans le workspace courant. */
 export function newDiagram() {
-  if (!confirm('Créer un nouveau schéma ? (le schéma actuel peut être récupéré avec Annuler / Ctrl+Z)')) return;
-  st().load(emptyDiagram());
+  createDocument();
 }
+
+/** Où placer un contenu importé : remplacer le document, l'ajouter au document, ou créer un nouveau document. */
+export type ImportMode = 'replace' | 'add' | 'new';
 
 export function applyAutoSequence() {
   st().commit((d) => autoSequence(d));
@@ -124,39 +130,47 @@ function insertionOrigin(): { x: number; y: number } {
   return { x: (80 - vp.x) / vp.zoom, y: (120 - vp.y) / vp.zoom };
 }
 
-export function importMermaid(source: string, mode: 'replace' | 'add', opts: Partial<MermaidImportOptions> = {}) {
+export function importMermaid(source: string, mode: ImportMode, opts: Partial<MermaidImportOptions> = {}, docName = 'Import Mermaid') {
   const options: MermaidImportOptions = {
     animation: 'flow',
     roughness: 1,
     routing: 'straight',
-    origin: mode === 'replace' ? { x: 80, y: 80 } : insertionOrigin(),
+    origin: mode === 'add' ? insertionOrigin() : { x: 80, y: 80 },
     ...opts,
   };
   if (isSequenceDiagram(source)) {
-    importSequence(source, mode, { roughness: options.roughness, origin: options.origin });
+    importSequence(source, mode, { roughness: options.roughness, origin: options.origin }, docName);
     return;
   }
   const { nodes, edges } = mermaidToElements(source, options);
-  insertImported(nodes, edges, mode);
+  insertImported(nodes, edges, mode, {}, docName);
 }
 
 /** Diagramme de séquence Mermaid : rendu « séquence animée » (par défaut) ou « schéma en boîtes ». */
-export function importSequence(source: string, mode: 'replace' | 'add', opts: Partial<SequenceImportOptions> = {}) {
+export function importSequence(source: string, mode: ImportMode, opts: Partial<SequenceImportOptions> = {}, docName = 'Diagramme de séquence') {
   const render = opts.render ?? 'sequence';
   const { nodes, edges, settings } = sequenceToElements(source, {
     render,
     animation: render === 'sequence' ? 'draw' : 'particles',
     roughness: 1,
     reveal: render === 'sequence',
-    origin: mode === 'replace' ? { x: 80, y: 80 } : insertionOrigin(),
+    origin: mode === 'add' ? insertionOrigin() : { x: 80, y: 80 },
     pause: st().diagram.settings.stepPause,
     ...opts,
   });
-  insertImported(nodes, edges, mode, settings);
+  insertImported(nodes, edges, mode, settings, docName);
 }
 
-function insertImported(nodes: NodeElement[], edges: EdgeElement[], mode: 'replace' | 'add', settings: Partial<Diagram['settings']> = {}) {
-  if (mode === 'replace') {
+function insertImported(
+  nodes: NodeElement[],
+  edges: EdgeElement[],
+  mode: ImportMode,
+  settings: Partial<Diagram['settings']> = {},
+  docName = 'Import',
+) {
+  if (mode === 'new') {
+    createDocument(docName, { ...emptyDiagram(), settings: { ...emptyDiagram().settings, ...settings }, nodes, edges });
+  } else if (mode === 'replace') {
     st().load({ ...emptyDiagram(), settings: { ...st().diagram.settings, ...settings }, nodes, edges });
   } else {
     addElements(nodes, edges);
@@ -169,33 +183,39 @@ export function zoomToFit() {
   const b = diagramBounds(st().diagram);
   const svg = getCanvasSvg();
   if (!b || !svg) return;
-  st().setViewport(fitViewport(b, svg.getBoundingClientRect()));
+  st().setViewport(fitViewport(b, svg.getBoundingClientRect(), 1.5, leftInset(st().sidebarOpen)));
 }
 
 export function saveJson() {
-  download(`schema${FILE_EXTENSION}`, serializeDiagram(st().diagram), 'application/json');
+  download(`${fileSlug(currentDocName())}${FILE_EXTENSION}`, serializeDiagram(st().diagram), 'application/json');
 }
 
 export function exportSvg() {
   const svg = getCanvasSvg();
   if (!svg) return;
-  download('schema-anime.svg', exportSvgString(st().diagram, svg), 'image/svg+xml');
+  download(`${fileSlug(currentDocName())}.svg`, exportSvgString(st().diagram, svg), 'image/svg+xml');
 }
 
 export async function exportPng() {
   const svg = getCanvasSvg();
   if (!svg) return;
-  download('schema.png', await exportPngBlob(exportSvgString(st().diagram, svg)));
+  download(`${fileSlug(currentDocName())}.png`, await exportPngBlob(exportSvgString(st().diagram, svg)));
 }
 
-export async function importFile(file: File, mode: 'replace' | 'add' = 'replace') {
+/** Importe un fichier : par défaut dans un nouveau document nommé d'après le fichier. */
+export async function importFile(file: File, mode: ImportMode = 'new') {
   try {
+    flushSave();
     const parsed = parseImportedText(await file.text());
-    if (parsed.kind === 'mermaid') importMermaid(parsed.source, mode);
-    else if (mode === 'replace') {
-      st().load(parsed.diagram);
+    const name = file.name.replace(/(\.animflow)?\.(json|svg|mmd|mermaid|txt|md)$/i, '').replace(/\.animflow-workspace$/i, '') || 'Import';
+    if (parsed.kind === 'workspace') importWorkspace(parsed.file);
+    else if (parsed.kind === 'mermaid') importMermaid(parsed.source, mode, {}, name);
+    else if (mode === 'add') addElements(parsed.diagram.nodes, parsed.diagram.edges);
+    else {
+      if (mode === 'new') createDocument(name, parsed.diagram);
+      else st().load(parsed.diagram);
       requestAnimationFrame(() => zoomToFit());
-    } else addElements(parsed.diagram.nodes, parsed.diagram.edges);
+    }
   } catch (err) {
     alert(`Import impossible : ${(err as Error).message}`);
   }

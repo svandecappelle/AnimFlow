@@ -15,6 +15,7 @@ import {
 import { Canvas } from './components/Canvas';
 import { MermaidDialog } from './components/MermaidDialog';
 import { PropertiesPanel } from './components/PropertiesPanel';
+import { Sidebar } from './components/Sidebar';
 import { Timeline } from './components/Timeline';
 import { TOOL_KEYS, Toolbar } from './components/Toolbar';
 import { TopBar } from './components/TopBar';
@@ -41,6 +42,7 @@ const SHORTCUTS: [string, string][] = [
   ['Ctrl+Z / Ctrl+Maj+Z', 'Annuler / rétablir'],
   ['Suppr', 'Supprimer'],
   ['Flèches', 'Déplacer (Maj : ×10)'],
+  ['B', 'Panneau des documents et workspaces'],
   ['P', 'Lecture / pause des animations'],
   ['C', 'Caméra qui suit l’animation (mode séquence)'],
   ['Ctrl+S / Ctrl+O / Ctrl+E', 'Enregistrer / ouvrir / exporter SVG animé'],
@@ -53,6 +55,7 @@ export default function App() {
   const [video, setVideo] = useState(false);
   const [dropping, setDropping] = useState(false);
   const sequence = useStore((s) => s.diagram.settings.sequence);
+  const sidebarOpen = useStore((s) => s.sidebarOpen);
 
   useEffect(() => {
     requestAnimationFrame(() => zoomToFit());
@@ -99,6 +102,7 @@ export default function App() {
       }
       else if (e.key === '?') setHelp((h) => !h);
       else if (k === 'p') s.setPlaying(!s.playing);
+      else if (k === 'b') s.setSidebarOpen(!s.sidebarOpen);
       else if (TOOL_KEYS[k]) s.setTool(TOOL_KEYS[k]);
       else if (k === 'enter' && s.selectedIds.length === 1) s.setEditing(s.selectedIds[0]);
       else return;
@@ -158,16 +162,17 @@ export default function App() {
         e.preventDefault();
         setDropping(false);
         const file = e.dataTransfer.files[0];
-        if (file) void importFile(file, e.shiftKey ? 'add' : 'replace');
+        if (file) void importFile(file, e.shiftKey ? 'add' : 'new');
       }}
     >
       <TopBar onMermaid={setMermaid} onHelp={() => setHelp(true)} onVideo={() => setVideo(true)} />
-      <main className="workspace">
+      <main className={`workspace ${sidebarOpen ? 'with-sidebar' : ''}`}>
         <Canvas />
+        {sidebarOpen && <Sidebar />}
         <Toolbar />
         <PropertiesPanel />
         {sequence && <Timeline />}
-        {dropping && <div className="drop-overlay">Déposez un fichier .animflow.json, .svg AnimFlow ou Mermaid (Maj : ajouter)</div>}
+        {dropping && <div className="drop-overlay">Déposez un fichier (schéma, workspace, SVG AnimFlow ou Mermaid) : ouvert dans un nouveau document — Maj : ajouter au document courant</div>}
       </main>
       {mermaid && <MermaidDialog mode={mermaid} onClose={() => setMermaid(null)} />}
       {video && (

@@ -2,6 +2,7 @@ import { FONTS_CSS_URL, normalizeDiagram } from '../defaults';
 import { cameraKeyframes, cameraSmil } from '../camera';
 import { diagramBounds } from '../geometry';
 import type { Diagram } from '../types';
+import { isWorkspaceFile, type WorkspaceFile } from '../workspace';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const XLINK_NS = 'http://www.w3.org/1999/xlink';
@@ -120,19 +121,32 @@ export async function exportPngBlob(svgString: string, scale = 2): Promise<Blob>
   }
 }
 
-export type ParsedFile = { kind: 'diagram'; diagram: Diagram } | { kind: 'mermaid'; source: string };
+export type ParsedFile =
+  | { kind: 'diagram'; diagram: Diagram }
+  | { kind: 'workspace'; file: WorkspaceFile }
+  | { kind: 'mermaid'; source: string };
 
 /** Reconnaît un contenu importé : JSON AnimFlow, SVG exporté par AnimFlow, ou texte Mermaid. */
 export function parseImportedText(text: string): ParsedFile {
   const trimmed = text.trim();
-  if (trimmed.startsWith('{')) return { kind: 'diagram', diagram: normalizeDiagram(JSON.parse(trimmed)) };
+  if (trimmed.startsWith('{')) {
+    const raw = JSON.parse(trimmed);
+    if (isWorkspaceFile(raw)) {
+      const documents = (Array.isArray(raw.documents) ? raw.documents : []).map((doc) => ({
+        name: String(doc?.name ?? 'Sans titre'),
+        diagram: normalizeDiagram(doc?.diagram),
+      }));
+      return { kind: 'workspace', file: { ...raw, documents } };
+    }
+    return { kind: 'diagram', diagram: normalizeDiagram(raw) };
+  }
   if (trimmed.startsWith('<')) {
     const m = new RegExp(`${META_PREFIX}([A-Za-z0-9+/=]+)`).exec(trimmed);
     if (!m) throw new Error("Ce SVG n'a pas été exporté par AnimFlow (métadonnées absentes).");
     return { kind: 'diagram', diagram: normalizeDiagram(JSON.parse(fromBase64(m[1]))) };
   }
   if (/^(graph|flowchart|sequenceDiagram)\b/i.test(trimmed.replace(/^(%%.*\n|\s)*/, ''))) return { kind: 'mermaid', source: trimmed };
-  throw new Error('Format non reconnu (attendu : .animflow.json, .svg AnimFlow ou Mermaid flowchart / sequenceDiagram).');
+  throw new Error('Format non reconnu (attendu : .animflow.json, workspace, .svg AnimFlow ou Mermaid flowchart / sequenceDiagram).');
 }
 
 export function pickFile(accept: string): Promise<File | null> {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { renameDocument } from '../workspaceActions';
 import { exportPng, exportSvg, newDiagram, openFile, saveJson, zoomToFit } from '../actions';
 import { useStore } from '../store';
 import { icons } from './icons';
@@ -51,10 +52,18 @@ export function TopBar({
   const sequence = useStore((s) => s.diagram.settings.sequence);
   const camera = useStore((s) => s.diagram.settings.camera);
   const cameraSuspended = useStore((s) => s.cameraSuspended);
-  const { undo, redo, setPlaying, restart, commit, setCameraSuspended } = useStore.getState();
+  const sidebarOpen = useStore((s) => s.sidebarOpen);
+  const { undo, redo, setPlaying, restart, commit, setCameraSuspended, setSidebarOpen } = useStore.getState();
 
   return (
     <header className="topbar">
+      <button
+        className={`icon-btn ${sidebarOpen ? 'active' : ''}`}
+        title="Documents et workspaces — B"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+      >
+        ☰
+      </button>
       <div className="brand">
         <svg width="22" height="22" viewBox="0 0 24 24">
           <path d="M3 17c4-10 8 4 12-6s4-4 6-4" fill="none" stroke="#6965db" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="4 3">
@@ -63,8 +72,9 @@ export function TopBar({
         </svg>
         AnimFlow
       </div>
+      <DocTitle />
       <Menu label="Fichier">
-        <Item onClick={newDiagram}>Nouveau</Item>
+        <Item onClick={newDiagram}>Nouveau document</Item>
         <Item onClick={openFile} hint="Ctrl+O">
           Ouvrir… (.json, .svg, .mmd)
         </Item>
@@ -144,5 +154,42 @@ export function TopBar({
         {icons.help}
       </button>
     </header>
+  );
+}
+
+/** « Workspace / Document » ; clic sur le nom du document pour le renommer. */
+function DocTitle() {
+  const ws = useStore((s) => s.workspaces.find((w) => w.id === s.currentWorkspaceId));
+  const docId = useStore((s) => s.currentDocId);
+  const name = ws?.docs.find((m) => m.id === docId)?.name ?? 'Sans titre';
+  const [editing, setEditing] = useState(false);
+  return (
+    <div className="doc-title">
+      <span className="ws-name" onClick={() => useStore.getState().setSidebarOpen(true)} title="Afficher les documents">
+        {ws?.name}
+      </span>
+      <span className="slash">/</span>
+      {editing ? (
+        <input
+          className="inline-input"
+          defaultValue={name}
+          autoFocus
+          onFocus={(e) => e.target.select()}
+          onBlur={(e) => {
+            renameDocument(docId, e.target.value);
+            setEditing(false);
+          }}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            if (e.key === 'Escape') setEditing(false);
+          }}
+        />
+      ) : (
+        <span className="doc-name" onClick={() => setEditing(true)} title="Cliquer pour renommer">
+          {name}
+        </span>
+      )}
+    </div>
   );
 }

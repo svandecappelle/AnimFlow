@@ -1,6 +1,9 @@
 import { FONT_STACKS } from './defaults';
 import type { FontFamily } from './types';
 
+/** « 1 forme », « 3 formes » */
+export const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
+
 let ctx: CanvasRenderingContext2D | null | undefined;
 
 /** Taille approximative d'un texte multi-ligne (canvas si disponible, estimation sinon). */

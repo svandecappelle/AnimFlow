@@ -3,6 +3,7 @@ import { applyAutoSequence, deleteSelected, duplicateSelected } from '../actions
 import { retime, sequenceCycle } from '../animation';
 import { BACKGROUND_COLORS, FILL_COLORS, STROKE_COLORS } from '../defaults';
 import { useStore } from '../store';
+import { plural } from '../text';
 import type { EdgeAnimation, EdgeElement, NodeElement, NodeReveal } from '../types';
 import { icons } from './icons';
 
@@ -216,7 +217,7 @@ export function PropertiesPanel() {
           </Row>
         </Section>
         <p className="muted">
-          {diagram.nodes.length} formes · {diagram.edges.length} liens
+          {plural(diagram.nodes.length, 'forme')} · {plural(diagram.edges.length, 'lien')}
           <br />
           Sélectionnez un élément pour modifier son style et son animation.
         </p>

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import { normalizeDiagram } from './defaults';
 import { createExampleDiagram } from './example';
 import type { Diagram } from './types';
+import { docMeta, loadIndex, saveDoc, saveIndex, type Workspace } from './workspace';
 
 export type Tool = 'select' | 'hand' | 'rectangle' | 'rounded' | 'ellipse' | 'diamond' | 'arrow' | 'text';
 
@@ -12,7 +12,6 @@ export interface Viewport {
 }
 
 const HISTORY_LIMIT = 100;
-const STORAGE_KEY = 'animflow:diagram';
 
 interface State {
   diagram: Diagram;
@@ -26,6 +25,12 @@ interface State {
   editingId: string | null;
   /** La caméra de suivi est mise en pause après une action manuelle sur la vue (zoom, déplacement) */
   cameraSuspended: boolean;
+  workspaces: Workspace[];
+  currentWorkspaceId: string;
+  currentDocId: string;
+  sidebarOpen: boolean;
+  /** La dernière sauvegarde a échoué (stockage du navigateur plein) */
+  storageFull: boolean;
 
   setTool(tool: Tool): void;
   select(ids: string[]): void;
@@ -34,6 +39,11 @@ interface State {
   restart(): void;
   setEditing(id: string | null): void;
   setCameraSuspended(s: boolean): void;
+  setSidebarOpen(open: boolean): void;
+  /** Met à jour l'index des workspaces (persisté immédiatement). */
+  setWorkspaces(patch: Partial<Pick<State, 'workspaces' | 'currentWorkspaceId' | 'currentDocId'>>): void;
+  /** Bascule vers un autre document : sauvegarde le courant, conserve son historique d'annulation. */
+  switchDocument(docId: string, workspaceId: string, diagram: Diagram): void;
   /** Mémorise l'état courant dans l'historique (à appeler avant une série de `apply`). */
   pushHistory(): void;
   /** Modifie le diagramme sans créer d'entrée d'historique. */
@@ -46,23 +56,22 @@ interface State {
   redo(): void;
 }
 
-function loadInitial(): Diagram {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return normalizeDiagram(JSON.parse(raw));
-  } catch {
-    // stockage indisponible ou contenu corrompu : on repart de l'exemple
-  }
-  return createExampleDiagram();
-}
-
 const existing = (d: Diagram, ids: string[]) => {
   const all = new Set([...d.nodes.map((n) => n.id), ...d.edges.map((e) => e.id)]);
   return ids.filter((id) => all.has(id));
 };
 
+const initial = loadIndex(createExampleDiagram);
+/** Historiques d'annulation des documents non ouverts (en mémoire, le temps de la session) */
+const histories = new Map<string, { past: Diagram[]; future: Diagram[] }>();
+
 export const useStore = create<State>((set, get) => ({
-  diagram: loadInitial(),
+  diagram: initial.diagram,
+  workspaces: initial.index.workspaces,
+  currentWorkspaceId: initial.index.currentWorkspaceId,
+  currentDocId: initial.index.currentDocId,
+  sidebarOpen: false,
+  storageFull: false,
   selectedIds: [],
   tool: 'select',
   viewport: { x: 0, y: 0, zoom: 1 },
@@ -80,6 +89,32 @@ export const useStore = create<State>((set, get) => ({
   restart: () => set((s) => ({ restartToken: s.restartToken + 1, cameraSuspended: false })),
   setEditing: (editingId) => set({ editingId }),
   setCameraSuspended: (cameraSuspended) => set({ cameraSuspended }),
+  setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
+  setWorkspaces: (patch) => {
+    set(patch);
+    const s = get();
+    saveIndex({ version: 1, workspaces: s.workspaces, currentWorkspaceId: s.currentWorkspaceId, currentDocId: s.currentDocId });
+  },
+  switchDocument: (docId, workspaceId, diagram) => {
+    flushSave();
+    const s = get();
+    histories.set(s.currentDocId, { past: s.past, future: s.future });
+    const h = histories.get(docId) ?? { past: [], future: [] };
+    set({
+      diagram,
+      past: h.past,
+      future: h.future,
+      selectedIds: [],
+      editingId: null,
+      cameraSuspended: false,
+      tool: 'select',
+      // Dans la même mise à jour que le diagramme : la sauvegarde auto ne doit jamais écrire
+      // le nouveau contenu sous l'ancien identifiant
+      currentDocId: docId,
+      currentWorkspaceId: workspaceId,
+    });
+    get().setWorkspaces({});
+  },
 
   pushHistory: () => set((s) => ({ past: [...s.past, s.diagram].slice(-HISTORY_LIMIT), future: [] })),
   apply: (fn) => set((s) => ({ diagram: fn(s.diagram) })),
@@ -115,19 +150,33 @@ export const useStore = create<State>((set, get) => ({
     }),
 }));
 
-// Sauvegarde automatique dans le navigateur
+// Sauvegarde automatique du document courant (contenu + métadonnées dans l'index)
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
-useStore.subscribe((s, prev) => {
-  if (s.diagram === prev.diagram) return;
+let pending: { docId: string; diagram: Diagram } | null = null;
+
+/** Écrit immédiatement la sauvegarde en attente (avant de changer de document, d'exporter…). */
+export function flushSave() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(s.diagram));
-    } catch {
-      // quota dépassé / navigation privée : la sauvegarde auto est best-effort
-    }
-  }, 400);
+  if (!pending) return;
+  const { docId, diagram } = pending;
+  pending = null;
+  const ok = saveDoc(docId, diagram);
+  const s = useStore.getState();
+  const workspaces = s.workspaces.map((w) => ({
+    ...w,
+    docs: w.docs.map((m) => (m.id === docId ? docMeta(m.id, m.name, diagram) : m)),
+  }));
+  useStore.setState({ storageFull: !ok });
+  s.setWorkspaces({ workspaces });
+}
+
+useStore.subscribe((s, prev) => {
+  if (s.diagram === prev.diagram || s.currentDocId !== prev.currentDocId) return;
+  pending = { docId: s.currentDocId, diagram: s.diagram };
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushSave, 400);
 });
+window.addEventListener('beforeunload', flushSave);
 
 /** Élément <svg> du canevas (pour pause/lecture et export). */
 let svgElement: SVGSVGElement | null = null;
