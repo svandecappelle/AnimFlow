@@ -134,6 +134,9 @@ export function TopBar({
       <button className="icon-btn" title="Recommencer l'animation" onClick={restart}>
         {icons.restart}
       </button>
+      <button className="btn present-btn" title="Mode présentation — F5" onClick={() => useStore.getState().setPresenting(true)}>
+        ▶ Présenter
+      </button>
       <label className="toggle" title="Mode séquence : les flux jouent les uns après les autres selon leur délai">
         <input
           type="checkbox"

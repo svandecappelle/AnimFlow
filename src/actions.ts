@@ -1,5 +1,5 @@
 import { autoSequence } from './animation';
-import { fitViewport, leftInset } from './camera';
+import { canvasInsets, fitViewport } from './camera';
 import { emptyDiagram, randomSeed, uid } from './defaults';
 import { diagramBounds, reverseEdge, snapEdge } from './geometry';
 import { download, exportPngBlob, exportSvgString, FILE_EXTENSION, parseImportedText, pickFile, serializeDiagram } from './io/files';
@@ -220,7 +220,7 @@ export function zoomToFit() {
   const b = diagramBounds(st().diagram);
   const svg = getCanvasSvg();
   if (!b || !svg) return;
-  st().setViewport(fitViewport(b, svg.getBoundingClientRect(), 1.5, leftInset(st().sidebarOpen)));
+  st().setViewport(fitViewport(b, svg.getBoundingClientRect(), st().presenting ? 4 : 1.5, canvasInsets(st())));
 }
 
 export function saveJson() {

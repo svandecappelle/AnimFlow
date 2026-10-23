@@ -64,6 +64,8 @@ interface State {
   /** Message d'information temporaire */
   toast: string | null;
   rightTab: 'props' | 'order';
+  /** Mode présentation (plein écran, navigation étape par étape) */
+  presenting: boolean;
 
   setTool(tool: Tool): void;
   select(ids: string[]): void;
@@ -77,6 +79,7 @@ interface State {
   setPeers(peers: Peer[]): void;
   notify(message: string): void;
   setRightTab(tab: 'props' | 'order'): void;
+  setPresenting(p: boolean): void;
   /** Met à jour l'index des workspaces (persisté immédiatement). */
   setWorkspaces(patch: Partial<Pick<State, 'workspaces' | 'currentWorkspaceId' | 'currentDocId'>>): void;
   /** Bascule vers un autre document : sauvegarde le courant, conserve son historique d'annulation. */
@@ -119,6 +122,7 @@ export const useStore = create<State>((set, get) => ({
       ? `Colonnes activées sur ${initial.migrated} diagramme${initial.migrated > 1 ? 's' : ''} de séquence : en-têtes collants et noms rappelés le long des lignes de vie.`
       : null,
   rightTab: 'props',
+  presenting: false,
   selectedIds: [],
   tool: 'select',
   viewport: { x: 0, y: 0, zoom: 1 },
@@ -144,6 +148,7 @@ export const useStore = create<State>((set, get) => ({
     })),
   setPeers: (peers) => set({ peers }),
   setRightTab: (rightTab) => set({ rightTab }),
+  setPresenting: (presenting) => set(presenting ? { presenting, selectedIds: [], editingId: null, cameraSuspended: false } : { presenting }),
   notify: (toast) => {
     set({ toast });
     clearTimeout(toastTimer);

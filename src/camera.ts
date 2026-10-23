@@ -171,21 +171,38 @@ export function cameraSmil(keys: CameraKey[]): { values: string; keyTimes: strin
   };
 }
 
-/** Zone du canevas non masquée par la barre d'outils, le panneau de propriétés et la timeline. */
-/** Marge gauche du canevas masquée par la barre d'outils et, s'il est ouvert, le panneau des documents. */
-export const leftInset = (sidebarOpen: boolean) => (sidebarOpen ? 80 + 284 : 80);
+/** Marges du canevas masquées par l'interface (pixels écran) */
+export interface Insets {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
 
-export function visibleArea(rect: { width: number; height: number }, insetLeft = 80) {
-  const left = insetLeft;
-  const top = 30;
-  const width = Math.max(100, rect.width - 310 - left);
-  const height = Math.max(100, rect.height - 80 - top);
-  return { left, top, width, height };
+/**
+ * Marges masquées par l'interface : barre d'outils et panneau des documents (gauche), panneau de propriétés
+ * (droite), timeline (bas). En présentation, seule la barre de navigation du bas est à éviter.
+ */
+export const canvasInsets = (opts: { sidebarOpen: boolean; presenting: boolean }): Insets =>
+  opts.presenting
+    ? { left: 40, right: 40, top: 40, bottom: 90 }
+    : { left: opts.sidebarOpen ? 80 + 284 : 80, right: 310, top: 30, bottom: 80 };
+
+const DEFAULT_INSETS = canvasInsets({ sidebarOpen: false, presenting: false });
+
+/** Zone du canevas non masquée par l'interface. */
+export function visibleArea(rect: { width: number; height: number }, insets: Insets = DEFAULT_INSETS) {
+  return {
+    left: insets.left,
+    top: insets.top,
+    width: Math.max(100, rect.width - insets.left - insets.right),
+    height: Math.max(100, rect.height - insets.top - insets.bottom),
+  };
 }
 
 /** Viewport qui cadre `b` dans la zone visible du canevas. */
-export function fitViewport(b: Bounds, rect: { width: number; height: number }, maxZoom = 1.5, insetLeft = 80): Viewport {
-  const area = visibleArea(rect, insetLeft);
+export function fitViewport(b: Bounds, rect: { width: number; height: number }, maxZoom = 1.5, insets: Insets = DEFAULT_INSETS): Viewport {
+  const area = visibleArea(rect, insets);
   const zoom = Math.min(maxZoom, Math.max(0.05, Math.min(area.width / (b.maxX - b.minX || 1), area.height / (b.maxY - b.minY || 1))));
   return {
     zoom,

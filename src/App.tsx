@@ -15,6 +15,7 @@ import {
 } from './actions';
 import { Canvas } from './components/Canvas';
 import { MermaidDialog } from './components/MermaidDialog';
+import { Presentation } from './components/Presentation';
 import { RightPanel } from './components/RightPanel';
 import { ShareDialog } from './components/ShareDialog';
 import { Sidebar } from './components/Sidebar';
@@ -46,6 +47,7 @@ const SHORTCUTS: [string, string][] = [
   ['Ctrl+Z / Ctrl+Maj+Z', 'Annuler / rétablir'],
   ['Suppr', 'Supprimer'],
   ['Flèches', 'Déplacer (Maj : ×10)'],
+  ['F5', 'Mode présentation (→ / ← : étapes, Échap : quitter)'],
   ['B', 'Panneau des documents et workspaces'],
   ['P', 'Lecture / pause des animations'],
   ['L', 'Panneau « Ordre des étapes »'],
@@ -64,6 +66,7 @@ export default function App() {
   const sequence = useStore((s) => s.diagram.settings.sequence);
   const sidebarOpen = useStore((s) => s.sidebarOpen);
   const toast = useStore((s) => s.toast);
+  const presenting = useStore((s) => s.presenting);
 
   useEffect(() => {
     requestAnimationFrame(() => zoomToFit());
@@ -104,7 +107,8 @@ export default function App() {
         e.preventDefault();
         return;
       }
-      if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
+      if (e.key === 'F5') s.setPresenting(true);
+      else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
       else if (e.key === 'Escape') {
         s.select([]);
         s.setTool('select');
@@ -177,7 +181,7 @@ export default function App() {
 
   return (
     <div
-      className="app"
+      className={`app ${presenting ? 'presenting' : ''}`}
       onDragOver={(e) => {
         e.preventDefault();
         setDropping(true);
@@ -198,6 +202,7 @@ export default function App() {
         <RightPanel />
         {sequence && <Timeline />}
         {toast && <div className="toast panel" role="status">{toast}</div>}
+        {presenting && <Presentation />}
         {dropping && <div className="drop-overlay">Déposez un fichier (schéma, workspace, .excalidraw, SVG AnimFlow ou Mermaid) : ouvert dans un nouveau document — Maj : ajouter au document courant</div>}
       </main>
       {mermaid && <MermaidDialog mode={mermaid} onClose={() => setMermaid(null)} />}

@@ -77,7 +77,7 @@ describe('rendu séquence animée', () => {
   it('les éléments apparaissent au fil de la séquence', () => {
     expect(d.settings.sequence).toBe(true);
     const t = revealTimes(d);
-    expect(t.edges.get(messages[0].id)).toBeUndefined(); // premier message : dès le début
+    expect(t.edges.get(messages[0].id)).toBe(0); // premier message : apparaît dès le démarrage (masqué à l'instant initial)
     expect(t.edges.get(messages[3].id)).toBeCloseTo(messages[3].animation.delay);
     const note = r.nodes.find((n) => n.label === 'Jeton valide 15 min')!;
     expect(t.nodes.get(note.id)).toBeCloseTo(messages[3].animation.delay);

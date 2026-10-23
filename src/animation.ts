@@ -251,13 +251,18 @@ export function revealTimes(d: Diagram): RevealTimes {
   const revealed = new Map(d.nodes.filter((n) => n.reveal !== 'none').map((n) => [n.id, n]));
   const nodes = new Map<string, number>();
   for (const [id, n] of revealed) {
-    const t = n.revealDelay ?? time.get(id) ?? 0;
-    if (t > EPS && Number.isFinite(t)) nodes.set(id, t);
+    // Instant imposé : masqué jusque-là, même à 0 s (état initial d'une présentation) ; formes de départ « Auto » visibles
+    if (n.revealDelay != null) nodes.set(id, n.revealDelay);
+    else {
+      const t = time.get(id) ?? 0;
+      if (t > EPS && Number.isFinite(t)) nodes.set(id, t);
+    }
   }
   const edges = new Map<string, number>();
   for (const e of d.edges) {
     if (e.reveal) {
-      if (e.animation.delay > EPS) edges.set(e.id, e.animation.delay);
+      // Apparition demandée explicitement : masqué jusqu'au démarrage, même à 0 s
+      edges.set(e.id, e.animation.delay);
       continue;
     }
     if (!revealed.has(e.source.nodeId ?? '') && !revealed.has(e.target.nodeId ?? '')) continue;
@@ -428,4 +433,16 @@ export function applyStepOrder(d: Diagram, order: string[][]): Diagram {
       return { ...n, revealDelay: t, reveal: n.reveal === 'none' ? 'fade' : n.reveal };
     }),
   };
+}
+
+/**
+ * Instant où l'étape `i` est entièrement jouée (ses animations et les apparitions qu'elle déclenche), sans entamer
+ * l'étape suivante. `i = -1` : état initial, avant la première étape.
+ */
+export function stepHoldTime(steps: SequenceStep[], i: number): number {
+  if (i < 0 || !steps.length) return 0;
+  const s = steps[Math.min(i, steps.length - 1)];
+  const end = s.end + (s.arrivals.length ? REVEAL_DURATION : 0) + 0.05;
+  const next = steps[i + 1];
+  return next ? Math.max(s.start, Math.min(end, next.start - 0.02)) : end;
 }

@@ -1020,3 +1020,84 @@ kbd {
   cursor: pointer;
   opacity: 0.95;
 }
+
+/* Mode présentation */
+.app.presenting .topbar,
+.app.presenting .toolbar,
+.app.presenting .props,
+.app.presenting .sidebar,
+.app.presenting .timeline,
+.app.presenting .toast {
+  display: none;
+}
+.presentation-surface {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  cursor: pointer;
+}
+.presentation-title {
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  z-index: 21;
+  font-weight: 600;
+  color: var(--muted);
+  transition: opacity 0.4s;
+  pointer-events: none;
+}
+.presentation-hud {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  transition: opacity 0.4s;
+}
+.presentation-hud.hidden,
+.presentation-title.hidden {
+  opacity: 0;
+}
+.presentation-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 180px;
+  font-variant-numeric: tabular-nums;
+}
+.presentation-progress .dots {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 360px;
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  background: white;
+  padding: 0;
+  cursor: pointer;
+}
+.dot.done {
+  background: var(--accent);
+}
+.dot.running {
+  background: var(--accent-soft);
+  animation: dot-pulse 0.8s ease-in-out infinite alternate;
+}
+@keyframes dot-pulse {
+  to {
+    transform: scale(1.35);
+  }
+}
+.present-btn {
+  border: 1px solid var(--border);
+}

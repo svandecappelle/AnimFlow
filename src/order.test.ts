@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyStepOrder, autoSequence, retime, sequenceSteps } from './animation';
+import { applyStepOrder, autoSequence, REVEAL_DURATION, retime, sequenceSteps, stepHoldTime } from './animation';
 import { createEdge, createNode, emptyDiagram } from './defaults';
 import { edgeGeometry, nodeMap, reverseEdge, snapEdge } from './geometry';
 import { excalidrawToElements } from './io/excalidraw';
@@ -58,6 +58,23 @@ describe('ordre des étapes', () => {
     const r = applyStepOrder(d, [[ab, ad, c.id], [bc]]);
     expect(r.nodes.find((n) => n.id === c.id)!.revealDelay).toBe(0);
     expect(labels(r, sequenceSteps(r)[0].items.map((i) => i.id))).toEqual(['ab', 'ad', 'C']);
+  });
+});
+
+describe('présentation : fin d’étape', () => {
+  it('attend la fin des animations et des apparitions déclenchées, sans entamer l’étape suivante', () => {
+    const d = graph(); // étapes : [ab + ad] de 0 à 1,5 s (B, D apparaissent), puis [bc] à 1,8 s
+    const steps = sequenceSteps(d);
+    expect(stepHoldTime(steps, -1)).toBe(0);
+    // fin à 1,5 s + apparition 0,45 s, mais l'étape suivante démarre à 1,8 s : arrêt juste avant
+    expect(stepHoldTime(steps, 0)).toBeCloseTo(1.78);
+    // dernière étape : fin des animations + apparition de C
+    expect(stepHoldTime(steps, 1)).toBeCloseTo(steps[1].end + REVEAL_DURATION + 0.05);
+    // avec une pause longue, l'apparition est entièrement jouée
+    const slow = retime({ ...d, settings: { ...d.settings, stepPause: 2 } });
+    const s2 = sequenceSteps(slow);
+    expect(stepHoldTime(s2, 0)).toBeCloseTo(s2[0].end + REVEAL_DURATION + 0.05);
+    expect(stepHoldTime([], 3)).toBe(0);
   });
 });
 

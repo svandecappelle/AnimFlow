@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { cameraAt, cameraKeyframes, cameraMaxZoom, fitViewport, leftInset, visibleArea } from '../camera';
+import { cameraAt, cameraKeyframes, cameraMaxZoom, canvasInsets, fitViewport, visibleArea } from '../camera';
 import { setPastePoint } from '../actions';
 import { updateCursor } from '../collab';
 import { createEdge, createNode, DEFAULT_SIZES, FONT_STACKS } from '../defaults';
@@ -39,6 +39,7 @@ export function Canvas() {
   const cameraSuspended = useStore((s) => s.cameraSuspended);
   const sidebarOpen = useStore((s) => s.sidebarOpen);
   const peers = useStore((s) => s.peers);
+  const presenting = useStore((s) => s.presenting);
   const { select, setViewport, pushHistory, apply, commit, setTool, setEditing } = useStore.getState();
 
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -65,12 +66,13 @@ export function Canvas() {
   }, [restartToken]);
 
   // Caméra de suivi : cadre les éléments en cours d'animation (mode séquence, pendant la lecture)
-  const cameraOn = playing && diagram.settings.sequence && diagram.settings.camera !== 'off' && !cameraSuspended;
+  // En présentation, la caméra suit aussi à l'arrêt (retour instantané à l'étape précédente)
+  const cameraOn = (playing || presenting) && diagram.settings.sequence && diagram.settings.camera !== 'off' && !cameraSuspended;
   useEffect(() => {
     const svg = svgRef.current;
     if (!cameraOn || !svg) return;
     const rect = svg.getBoundingClientRect();
-    const inset = leftInset(useStore.getState().sidebarOpen);
+    const inset = canvasInsets(useStore.getState());
     const area = visibleArea(rect, inset);
     const keys = cameraKeyframes(diagram, area);
     const maxZoom = cameraMaxZoom(diagram.settings.camera);
@@ -90,7 +92,7 @@ export function Canvas() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [cameraOn, diagram, setViewport, sidebarOpen]);
+  }, [cameraOn, diagram, setViewport, sidebarOpen, presenting]);
 
   // Molette : défilement ; Ctrl/pincement : zoom centré sur le pointeur
   useEffect(() => {
@@ -435,7 +437,7 @@ export function Canvas() {
       >
         <g transform={`translate(${viewport.x} ${viewport.y}) scale(${viewport.zoom})`}>
           <DiagramContent diagram={diagram} geometries={geometries} editingId={editingId} />
-          <SelectionLayer
+          {!presenting && <SelectionLayer
             selected={selected}
             nodes={diagram.nodes}
             edges={diagram.edges}
@@ -447,8 +449,8 @@ export function Canvas() {
             drag={drag}
             nodesById={nodesById}
             ghosts={diagram.settings.sequence ? diagram.nodes.filter((n) => n.reveal !== 'none' && (!playing || selected.has(n.id))) : []}
-          />
-          {peers.length > 0 && <RemotePresence peers={peers} nodesById={nodesById} geometries={geometries} zoom={viewport.zoom} />}
+          />}
+          {peers.length > 0 && !presenting && <RemotePresence peers={peers} nodesById={nodesById} geometries={geometries} zoom={viewport.zoom} />}
         </g>
       </svg>
       <StickyHeaders nodes={diagram.nodes} viewport={viewport} onSelect={(id) => select([id])} />
